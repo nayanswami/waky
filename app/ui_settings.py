@@ -236,7 +236,7 @@ class SettingsWindow(QDialog):
         for widget in (self.launch_startup, self.start_minimized, self.start_hidden_no_terminal, self.show_floating_bar_on_startup, self.sound_effects):
             form.addRow(widget)
         self.appearance = QComboBox()
-        for label, key in (("Match Windows", "system"), ("Light", "light"), ("Dark", "dark")):
+        for label, key in (("Light", "light"), ("Dark", "dark"), ("Match Windows", "system")):
             self.appearance.addItem(label, key)
         self.appearance.currentIndexChanged.connect(lambda _i: self.appearance_changed.emit(self.appearance.currentData()))
         form.addRow("Appearance", self.appearance)
@@ -868,7 +868,7 @@ class SettingsWindow(QDialog):
         self.sound_effects.setChecked(general["sound_effects"])
         self.always_on_top.setChecked(general["always_on_top"])
         self.appearance.blockSignals(True)
-        self.appearance.setCurrentIndex(max(0, self.appearance.findData(general.get("appearance", "system"))))
+        self.appearance.setCurrentIndex(max(0, self.appearance.findData(general.get("appearance", "light"))))
         self.appearance.blockSignals(False)
         self._fb_load()
         self.ptt_hotkey.setText(s["hotkeys"]["push_to_talk"])

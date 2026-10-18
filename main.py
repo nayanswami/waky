@@ -15,9 +15,7 @@ if len(sys.argv) > 1 and sys.argv[1] == "--transcribe-once":
 
     raise SystemExit(_transcribe_worker_main(sys.argv[2:]))
 
-os.environ.setdefault("QT_ENABLE_HIGHDPI_SCALING", "0")
-os.environ.setdefault("QT_AUTO_SCREEN_SCALE_FACTOR", "0")
-os.environ.setdefault("QT_SCALE_FACTOR_ROUNDING_POLICY", "Round")
+# High-DPI scaling stays on (Qt default) so the UI is the right size on 125% / 150% / 4K screens.
 os.environ.setdefault("QT_LOGGING_RULES", "qt.qpa.window.warning=false")
 
 from PySide6.QtCore import QObject, Qt, QThread, QTimer, Signal, Slot
@@ -39,7 +37,7 @@ from app.transcriber import FasterWhisperTranscriber
 from app.ui_floating_bar import FloatingBar, TrayController
 from app.ui_onboarding import OnboardingWizard
 from app.ui_settings import SettingsWindow
-from app.utils import FROZEN, PROJECT_ROOT, RUNTIME_DIR
+from app.utils import FROZEN, LOG_DIR, PROJECT_ROOT, RUNTIME_DIR
 
 
 PID_FILE = RUNTIME_DIR / "waky.pid"
@@ -856,7 +854,56 @@ class WakyApp(QObject):
         self._delete_pid_file()
 
 
+_MUTEX_HANDLE = None
+
+
+def _already_running() -> bool:
+    """Only one Waky at a time (autostart plus a manual launch used to create two pills)."""
+    global _MUTEX_HANDLE
+    if sys.platform != "win32":
+        return False
+    try:
+        import ctypes
+
+        _MUTEX_HANDLE = ctypes.windll.kernel32.CreateMutexW(None, False, "Waky.Dictation.Mutex")
+        return ctypes.windll.kernel32.GetLastError() == 183  # ERROR_ALREADY_EXISTS
+    except Exception:
+        return False
+
+
+def _message_box(title: str, text: str) -> None:
+    try:
+        if sys.platform == "win32":
+            import ctypes
+
+            ctypes.windll.user32.MessageBoxW(None, text, title, 0x40)
+    except Exception:
+        pass
+
+
+def _install_crash_handlers() -> None:
+    """Never die silently: log every uncaught error, and tell the user once if the UI thread hit one."""
+    import logging
+    import traceback
+
+    log = logging.getLogger("waky")
+    shown = {"done": False}
+
+    def hook(exc_type, exc, tb) -> None:
+        log.error("Uncaught exception: %s", "".join(traceback.format_exception(exc_type, exc, tb)))
+        if not shown["done"] and threading.current_thread() is threading.main_thread():
+            shown["done"] = True
+            _message_box("Waky", "Waky hit an unexpected problem but is still running.\n\nDetails were saved to:\n" + str(LOG_DIR / "error.log"))
+
+    sys.excepthook = hook
+    threading.excepthook = lambda args: log.error("Thread %s failed", args.thread.name if args.thread else "?", exc_info=(args.exc_type, args.exc_value, args.exc_traceback))
+
+
 def main() -> int:
+    if _already_running():
+        _message_box("Waky", "Waky is already running. Look for its icon in the system tray (bottom right of the taskbar).")
+        return 0
+    _install_crash_handlers()
     if sys.platform == "win32":
         try:  # own taskbar identity, so Windows uses Waky's icon instead of a cached one
             import ctypes

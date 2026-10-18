@@ -21,9 +21,10 @@ from PySide6.QtWidgets import (
 
 from PySide6.QtCore import QTimer
 
-from . import hotkeys, llm_engine, pill_styles
+from . import hotkeys, llm_engine, pill_styles, system_check
 from .ui_illustrations import Illustration
 from .ios_widgets import AnimatedStack, IOSSwitch, PillPreview, StepDots, StyleCard
+from . import ios_theme
 from .ui_widgets import HotkeyEdit
 from .utils import asset_path
 
@@ -78,6 +79,7 @@ class OnboardingWizard(QDialog):
     settings_applied = Signal()   # emitted whenever a step has written new settings
     finished_setup = Signal(bool)  # True when the user wants Settings opened afterwards
     _verify_done = Signal(bool, str)
+    _checks_done = Signal(object)
 
     def __init__(self, config_manager, parent=None) -> None:
         super().__init__(parent)
@@ -124,7 +126,7 @@ class OnboardingWizard(QDialog):
         self.next_button.setObjectName("primary")
         self.next_button.setMinimumWidth(150)
         self.next_button.setMinimumHeight(40)
-        self.dots = StepDots(7)
+        self.dots = StepDots(8)
         self.back_button.clicked.connect(self._back)
         self.next_button.clicked.connect(self._next)
         nav.addWidget(self.dots)
@@ -139,11 +141,12 @@ class OnboardingWizard(QDialog):
 
         self.pages = [
             self._welcome_page(), self._engine_page(), self._key_page(), self._hotkey_page(),
-            self._style_page(), self._try_page(), self._done_page(),
+            self._style_page(), self._check_page(), self._try_page(), self._done_page(),
         ]
         for page in self.pages:
             self.stack.addWidget(page)
         self._verify_done.connect(self._on_verified)
+        self._checks_done.connect(self._on_checks)
         self.index = 0
         self._update_nav()
         self.illus.configure(engine="cloud")
@@ -345,6 +348,69 @@ class OnboardingWizard(QDialog):
         fb.update({"style": self.style_key, "accent": self.accent, "size": self.size_pct})
         self.settings_applied.emit()  # the real pill on screen follows along
 
+    def _check_page(self) -> QWidget:
+        page, layout = self._page("System check", "Making sure Waky will work on this PC. Anything amber or red comes with a fix.")
+        card = QFrame()
+        card.setObjectName("card")
+        cl = QVBoxLayout(card)
+        cl.setContentsMargins(20, 14, 20, 14)
+        cl.setSpacing(10)
+        self.check_rows: dict[str, tuple[QLabel, QLabel]] = {}
+        for key, name in (("mic", "Microphone"), ("perm", "Microphone access"), ("keys", "Global hotkeys"), ("clip", "Paste into apps"), ("net", "Internet to Groq")):
+            row = QHBoxLayout()
+            dot = QLabel("\u25CF")
+            dot.setFixedWidth(18)
+            dot.setStyleSheet("color:#8E8E93;")
+            title = QLabel(name)
+            title.setStyleSheet("font-weight:600;")
+            title.setFixedWidth(150)
+            detail = QLabel("Checking...")
+            detail.setObjectName("sub")
+            detail.setWordWrap(True)
+            row.addWidget(dot)
+            row.addWidget(title)
+            row.addWidget(detail, 1)
+            cl.addLayout(row)
+            self.check_rows[key] = (dot, detail)
+        layout.addWidget(card)
+        row = QHBoxLayout()
+        again = QPushButton("Check again")
+        again.clicked.connect(self._run_checks)
+        self.fix_button = QPushButton("Open Windows settings")
+        self.fix_button.hide()
+        self.fix_button.clicked.connect(self._open_fix)
+        row.addWidget(again)
+        row.addWidget(self.fix_button)
+        row.addStretch()
+        layout.addLayout(row)
+        layout.addStretch()
+        self._fix_uri = ""
+        return page
+
+    def _run_checks(self) -> None:
+        for dot, detail in self.check_rows.values():
+            dot.setStyleSheet("color:#8E8E93;")
+            detail.setText("Checking...")
+        self.fix_button.hide()
+        threading.Thread(target=lambda: self._checks_done.emit(system_check.run_all()), daemon=True, name="waky-system-check").start()
+
+    def _on_checks(self, results) -> None:
+        pal = ios_theme.current()
+        colors = {"ok": pal.success, "warn": "#FF9500", "fail": pal.danger}
+        self._fix_uri = ""
+        for c in results:
+            if c.key in self.check_rows:
+                dot, detail = self.check_rows[c.key]
+                dot.setStyleSheet(f"color:{colors[c.status]};")
+                detail.setText(c.detail)
+                if c.fix and not self._fix_uri:
+                    self._fix_uri = c.fix
+        self.fix_button.setVisible(bool(self._fix_uri))
+
+    def _open_fix(self) -> None:
+        if self._fix_uri:
+            QDesktopServices.openUrl(QUrl(self._fix_uri))
+
     def _try_page(self) -> QWidget:
         page, layout = self._page("Try it", "Click inside the box, hold your hotkey, say a sentence, then release.")
         self.try_hint = QLabel("")
@@ -382,13 +448,15 @@ class OnboardingWizard(QDialog):
     def _visible_indexes(self) -> list[int]:
         return [i for i in range(len(self.pages)) if not (i == 2 and not self.cloud)]
 
-    KINDS = ["welcome", "engine", "key", "hotkey", "pill", "try", "done"]
+    KINDS = ["welcome", "engine", "key", "hotkey", "pill", "check", "try", "done"]
 
     def _show(self, index: int, direction: int = 1, animate: bool = True) -> None:
         self.index = index
         if index == 5:
-            self.try_hint.setText(f"Hotkey: {hotkeys.pretty_combo(self.hotkey_edit.text())}   (or F8)")
+            self._run_checks()
         if index == 6:
+            self.try_hint.setText(f"Hotkey: {hotkeys.pretty_combo(self.hotkey_edit.text())}   (or F8)")
+        if index == 7:
             self.done_note.setText(
                 "Cloud mode is on. If Groq's free limit is ever reached, Waky switches to local Whisper once you download a model in Settings > Transcription."
                 if self.cloud

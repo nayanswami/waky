@@ -20,6 +20,13 @@ elif FROZEN:
 else:
     DATA_DIR = PROJECT_ROOT
 
+try:  # a read-only or missing profile folder must not stop the app from starting
+    DATA_DIR.mkdir(parents=True, exist_ok=True)
+except OSError:
+    import tempfile
+
+    DATA_DIR = Path(tempfile.gettempdir()) / "Waky"
+
 CONFIG_DIR = DATA_DIR / "config"
 LOG_DIR = DATA_DIR / "logs"
 MEMORY_DIR = DATA_DIR / "memory"

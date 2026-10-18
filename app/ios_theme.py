@@ -38,18 +38,18 @@ class Palette:
 
 
 LIGHT = Palette(
-    "light", bg="#F2F3F7", surface="#FFFFFF", surface2="#F2F3F7", sidebar="#E9EBF1", text="#0F1115", text2="#5F6470",
-    text3="#8D92A0", sep="#DADDE5", accent=BLUE, accent_fill="rgba(46,98,255,0.12)", accent_fill_hover="rgba(46,98,255,0.20)",
-    danger="#E5484D", success="#1FA65A", shadow="rgba(15,17,21,0.12)", is_dark=False,
+    "light", bg="#F2F2F7", surface="#FFFFFF", surface2="#F2F2F7", sidebar="#E9E9EF", text="#1C1C1E", text2="#6C6C70",
+    text3="#8E8E93", sep="#E1E1E6", accent=BLUE, accent_fill="rgba(46,98,255,0.11)", accent_fill_hover="rgba(46,98,255,0.19)",
+    danger="#FF3B30", success="#34C759", shadow="rgba(0,0,0,0.08)", is_dark=False,
 )
 DARK = Palette(
-    "dark", bg="#0B0C0F", surface="#17181D", surface2="#202127", sidebar="#111216", text="#F4F5F8", text2="#A3A7B3",
-    text3="#6F7380", sep="#2A2C34", accent="#4A78FF", accent_fill="rgba(74,120,255,0.20)", accent_fill_hover="rgba(74,120,255,0.32)",
-    danger="#FF6369", success="#3DD68C", shadow="rgba(0,0,0,0.5)", is_dark=True,
+    "dark", bg="#000000", surface="#1C1C1E", surface2="#2C2C2E", sidebar="#111113", text="#F5F5F7", text2="#A1A1A6",
+    text3="#6E6E73", sep="#38383A", accent="#4A78FF", accent_fill="rgba(74,120,255,0.20)", accent_fill_hover="rgba(74,120,255,0.32)",
+    danger="#FF453A", success="#30D158", shadow="rgba(0,0,0,0.6)", is_dark=True,
 )
 
 FONT_FAMILIES = ["Segoe UI Variable Text", "Segoe UI Variable", "Segoe UI", "Inter", "Arial"]
-_current = DARK
+_current = LIGHT
 
 
 def current() -> Palette:
@@ -102,10 +102,10 @@ def _render_assets(p: Palette, folder: Path) -> dict[str, str]:
 
 
 QSS = Template(r"""
-* { font-family: "Segoe UI Variable Text", "Segoe UI", sans-serif; font-size: 13px; outline: 0; }
+* { font-family: "Segoe UI Variable Text", "Segoe UI", sans-serif; font-size: 14px; outline: 0; }
 QDialog, QMessageBox, QInputDialog, QFileDialog { background: $bg; color: $text; }
 QLabel { color: $text; background: transparent; }
-QLabel#pageTitle { font-size: 28px; font-weight: 700; color: $text; }
+QLabel#pageTitle { font-size: 34px; font-weight: 700; color: $text; }
 QLabel#pageSubtitle, QLabel#sub, QLabel#settingsSubtitle { color: $text2; }
 QLabel#settingsTitle { font-size: 20px; font-weight: 700; }
 QLabel#title { font-size: 30px; font-weight: 700; color: $text; }
@@ -114,10 +114,10 @@ QLabel#ok { color: $success; font-weight: 600; }
 QLabel#bad { color: $danger; font-weight: 600; }
 QLabel#section { color: $text3; font-size: 12px; font-weight: 600; }
 
-QFrame#card { background: $surface; border: 1px solid $sep; border-radius: 18px; }
-QFrame#wizardCard { background: $surface; border: 1px solid $sep; border-radius: 30px; }
+QFrame#card { background: $surface; border: 1px solid $sep; border-radius: 22px; }
+QFrame#wizardCard { background: $surface; border: 1px solid $sep; border-radius: 34px; }
 QFrame#sideFrame { background: $sidebar; border: none; border-right: 1px solid $sep; }
-QFrame#styleCard { background: $surface; border: 1.5px solid $sep; border-radius: 16px; }
+QFrame#styleCard { background: $surface; border: 1.5px solid $sep; border-radius: 18px; }
 QFrame#styleCard[selected="true"] { border: 2px solid $accent; background: $accent_fill; }
 QFrame#styleCard:hover { border-color: $text3; }
 QFrame#footer { background: $bg; border: none; border-top: 1px solid $sep; }
@@ -129,8 +129,8 @@ QPushButton#anchor:disabled { background: $surface; }
 QFrame#hairline { background: $sep; border: none; max-height: 1px; min-height: 1px; }
 
 QPushButton {
-  background: $accent_fill; color: $accent; border: none; border-radius: 11px;
-  padding: 9px 18px; font-weight: 600; min-height: 18px;
+  background: $accent_fill; color: $accent; border: none; border-radius: 20px;
+  padding: 9px 20px; font-weight: 600; min-height: 22px;
 }
 QPushButton:hover { background: $accent_fill_hover; }
 QPushButton:pressed { background: $accent; color: #FFFFFF; }
@@ -148,17 +148,17 @@ QPushButton#swatch:checked { border: 3px solid $text; }
 QPushButton#gear { background: rgba(20,20,24,0.92); color: #FFFFFF; border: 1px solid #3A3C45; border-radius: 9px; padding: 0; }
 
 QLineEdit, QPlainTextEdit, QTextEdit, QSpinBox, QDoubleSpinBox {
-  background: $surface; color: $text; border: 1px solid $sep; border-radius: 11px; padding: 9px 12px;
+  background: $surface2; color: $text; border: 1.5px solid transparent; border-radius: 12px; padding: 10px 13px;
   selection-background-color: $accent; selection-color: #FFFFFF;
 }
-QLineEdit:focus, QPlainTextEdit:focus, QTextEdit:focus, QSpinBox:focus { border: 1.5px solid $accent; padding: 8.5px 11.5px; }
+QLineEdit:focus, QPlainTextEdit:focus, QTextEdit:focus, QSpinBox:focus { border: 1.5px solid $accent; background: $surface; }
 QLineEdit:read-only { background: $surface2; }
 QLineEdit#hotkey { font-size: 18px; font-weight: 600; padding: 14px 16px; border-radius: 14px; qproperty-alignment: AlignCenter; }
 
 QComboBox {
-  background: $surface; color: $text; border: 1px solid $sep; border-radius: 11px; padding: 8px 12px; min-height: 18px;
+  background: $surface2; color: $text; border: 1.5px solid transparent; border-radius: 12px; padding: 9px 13px; min-height: 20px;
 }
-QComboBox:hover { border-color: $text3; }
+QComboBox:hover { background: $accent_fill; }
 QComboBox:focus, QComboBox:on { border: 1.5px solid $accent; }
 QComboBox::drop-down { border: none; width: 26px; }
 QComboBox::down-arrow { image: url("$chevron"); width: 12px; height: 12px; }
@@ -167,7 +167,7 @@ QComboBox QAbstractItemView {
   selection-background-color: $accent; selection-color: #FFFFFF; outline: 0;
 }
 
-QListWidget { background: $surface; color: $text; border: 1px solid $sep; border-radius: 14px; padding: 6px; }
+QListWidget { background: $surface2; color: $text; border: none; border-radius: 14px; padding: 6px; }
 QListWidget::item { padding: 8px 10px; border-radius: 9px; }
 QListWidget::item:selected { background: $accent; color: #FFFFFF; }
 QListWidget::item:hover:!selected { background: $surface2; }
@@ -221,7 +221,7 @@ class ThemeManager(QObject):
 
     changed = Signal()
 
-    def __init__(self, app, appearance: str = "system") -> None:
+    def __init__(self, app, appearance: str = "light") -> None:
         super().__init__(app)
         self.app = app
         self.appearance = appearance
@@ -230,7 +230,7 @@ class ThemeManager(QObject):
             font.setFamily(family)
             if font.exactMatch() or QFont(family).family() == family:
                 break
-        font.setPixelSize(13)
+        font.setPixelSize(14)
         app.setFont(font)
         try:
             app.styleHints().colorSchemeChanged.connect(lambda *_: self.apply(self.appearance))
@@ -245,9 +245,9 @@ class ThemeManager(QObject):
             return DARK
         try:
             scheme = QGuiApplication.styleHints().colorScheme()
-            return LIGHT if scheme == Qt.ColorScheme.Light else DARK
+            return DARK if scheme == Qt.ColorScheme.Dark else LIGHT
         except Exception:
-            return DARK
+            return LIGHT
 
     def apply(self, appearance: str | None = None) -> None:
         global _current

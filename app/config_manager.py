@@ -21,7 +21,7 @@ DEFAULT_SETTINGS: dict[str, Any] = {
         "theme": "black_white_minimal",
         "paused": False,
         "onboarding_done": False,
-        "appearance": "system",
+        "appearance": "light",
     },
     "floating_bar": {
         "x": None,

@@ -60,21 +60,21 @@ def make(appearance):
     return theme, cfg
 
 
-# ---------- wizard (dark) ----------
-theme, cfg = make("dark")
+# ---------- wizard (light) ----------
+theme, cfg = make("light")
 wiz = OnboardingWizard(cfg)
 wiz.key_edit.setText("gsk_example_key_value")
 wiz.move(-6000, 0)
 wiz.show()
 settle(wiz, 600)
-for i, name in enumerate(["welcome", "engine", "key", "hotkey", "style", "try", "done"]):
+for i, name in enumerate(["welcome", "engine", "key", "hotkey", "style", "check", "try", "done"]):
     wiz.jump(i)
     settle(wiz, 1100 if i in (3, 4) else 700)  # let the illustration reach its pressed / listening frame
     wiz.grab().save(str(OUT / f"wizard_{name}.png"))
 wiz.hide()
 
 # ---------- settings (dark + light) ----------
-for appearance in ("dark", "light"):
+for appearance in ("light", "dark"):
     theme, cfg = make(appearance)
     win = SettingsWindow(cfg, Stub(), Stub(), Stub(), logging.getLogger("preview"))
     win.resize(1180, 780)

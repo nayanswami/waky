@@ -64,6 +64,7 @@ w._pick_style("line")
 w._next()                      # style -> try
 assert cfg.settings["hotkeys"]["push_to_talk"] == "<ctrl>+<alt>"
 assert cfg.settings["floating_bar"]["style"] == "line"
+w._next()                      # check -> try
 w._next()                      # try -> done
 assert w.next_button.text() == "Start using Waky"
 w._next()
@@ -77,7 +78,7 @@ w2._next()
 w2._pick_engine(False)
 w2._next()
 assert w2.index == 3, "local mode must skip the key page"
-w2._next(); w2._next(); w2._next(); w2._next()
+w2._next(); w2._next(); w2._next(); w2._next(); w2._next()
 assert cfg2.settings["transcription"]["backend"] == "local" and cfg2.settings["general"]["onboarding_done"]
 assert not cfg2.settings["providers"]["groq"]["api_key"]
 print("phase 4 checks passed")
