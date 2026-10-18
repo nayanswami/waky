@@ -4,7 +4,8 @@ window.WAKY = {
   // Stable link: always points at the newest GitHub release asset named Waky-Setup.exe
   downloadUrl: "https://github.com/nayanswami/waky/releases/latest/download/Waky-Setup.exe",
   repoUrl: "https://github.com/nayanswami/waky",
-  sha256: "b4ff7a17b5229a1f6e5629740d0e52e0af7f5492bb718d1606f55ba30c9d63aa",
+  sha256: "8c60333811b7ec564cf2c9bdc160b36c5f1a455b7cbe5453f8b85ddd1e610cc1",
   size: "about 110 MB",
 };
+
 

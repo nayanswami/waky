@@ -5,25 +5,24 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Waky setup guide</title>
   <meta name="description" content="Install Waky, get a free Groq API key, pick your hotkey, build custom modes, and fix common problems.">
-  <meta name="theme-color" content="#f2f2f7">
+  <meta name="theme-color" content="#2e62ff">
   <link rel="icon" href="favicon.ico">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css">
-  <noscript><style>.reveal{opacity:1;transform:none}</style></noscript>
-</head>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="waky.css?v=3">
+  </head>
 <body>
-  <header class="nav-shell">
+  <header class="nav-shell guide-nav">
     <nav class="nav" aria-label="Main">
-      <a class="brand" href="./" aria-label="Waky home"><img src="assets/waky-icon.png" alt="" width="30" height="30"><span>Waky</span></a>
-      <div class="nav-links">
+      <a class="brand" href="./" aria-label="Waky home"><img src="assets/waky-icon.png" alt="" width="34" height="34"><span>Waky</span></a>
+      <div class="chips">
+        <a href="./#how">How it works</a>
         <a href="./#modes">Modes</a>
         <a href="./#offline">Offline</a>
-        <a href="./#privacy">Privacy</a>
         <a href="guide.html">Guide</a>
       </div>
-      <a class="btn btn-ink js-download" href="./#get"><span>Get Waky</span></a>
+      <a class="btn btn-pink js-download" href="./#get">Download <b>&darr;</b></a>
     </nav>
   </header>
 
@@ -93,7 +92,7 @@
         <h3>Rewrite selected text</h3>
         <p>Select text in any app, hold the hotkey, and say what you want: "make it shorter", "bullet points", "write email, professional tone". The selection is replaced with the result. With nothing selected, Waky just dictates.</p>
         <h3>The floating pill</h3>
-        <p>Hover over the pill to reveal a gear that opens Settings. Hold <kbd>Alt</kbd> and drag to move it, and it remembers where you put it. If it ever goes missing, right-click the tray icon and choose <b>Reset Floating Bar Position</b>.</p>
+        <p>Hold <kbd>Shift</kbd> and click the pill to open Settings. Hold <kbd>Alt</kbd> and drag to move it. By default it returns to the same spot on screen every time Waky starts; choose "Remember where I drag it" in Settings > Floating Bar to keep a custom spot. If it ever goes missing, right-click the tray icon and choose <b>Reset Floating Bar Position</b>.</p>
 
         <h2 id="modes">5. Custom modes</h2>
         <p>Open <b>Settings &gt; Commands</b>.</p>
@@ -142,12 +141,12 @@
 
   <footer class="foot">
     <div class="wrap">
-      <span>Waky · Made for people who think faster than they type.</span>
-      <span><a href="./">Home</a><a href="./#privacy">Privacy</a><a href="./#faq">FAQ</a></span>
+      <span class="mono">WAKY &middot; MADE FOR PEOPLE WHO THINK FASTER THAN THEY TYPE</span>
+      <span class="mono"><a href="./">HOME</a><a href="./#privacy">PRIVACY</a><a href="./#faq">FAQ</a></span>
     </div>
   </footer>
 
-  <script src="site-config.js"></script>
-  <script src="guide.js"></script>
+  <script src="site-config.js?v=3"></script>
+  <script src="guide.js?v=3"></script>
 </body>
 </html>

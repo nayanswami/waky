@@ -3,73 +3,101 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Waky: think out loud, get it written</title>
-  <meta name="description" content="Hold a key, talk the way you think, and Waky pastes clean, finished writing into any Windows app. Build your own modes. Bring your own key or stay offline.">
-  <meta name="theme-color" content="#f2f2f7">
-  <meta property="og:title" content="Waky: think out loud, get it written">
+  <title>Waky: say it messy, get it written</title>
+  <meta name="description" content="Hold a key, talk the way you think, and Waky pastes finished writing into any Windows app. Build your own modes. Bring your own key or stay offline.">
+  <meta name="theme-color" content="#2e62ff">
+  <meta property="og:title" content="Waky: say it messy, get it written">
   <meta property="og:description" content="Voice to finished writing in any Windows app. Custom modes, your own key, offline fallback.">
   <meta property="og:image" content="assets/waky-icon.png">
   <link rel="icon" href="favicon.ico">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css">
-  <noscript><style>.js-hide{opacity:1!important;transform:none!important}.curtain{display:none}</style></noscript>
+  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="waky.css?v=3">
+  <noscript><style>.js-hide{opacity:1!important;transform:none!important}.loader{display:none}</style></noscript>
 </head>
 <body>
-  <div class="curtain" aria-hidden="true"><div class="splash"><img src="assets/waky-icon.png" alt=""><i></i></div></div>
-  <div class="progress" aria-hidden="true"><span></span></div>
-
-  <div class="announce">
-    <span>Waky 1.0 is here for Windows. Free, and you bring your own key.</span>
-    <a href="guide.html" data-magnetic>Read the guide <b>&rsaquo;</b></a>
+  <div class="loader" aria-hidden="true">
+    <div class="loader-mark"><img src="assets/waky-mark.png" alt=""><i></i></div>
+    <p class="mono">LISTENING</p>
   </div>
+  <div class="progress" aria-hidden="true"><span></span></div>
 
   <header class="nav-shell">
     <nav class="nav" aria-label="Main">
-      <a class="brand" href="./" aria-label="Waky home"><img src="assets/waky-icon.png" alt="" width="30" height="30"><span>Waky</span></a>
-      <div class="seg" data-seg>
-        <i class="seg-thumb" aria-hidden="true"></i>
-        <a href="#talk" class="on">Talk</a>
-        <a href="#shape">Shape</a>
-        <a href="#offline">Offline</a>
-      </div>
-      <div class="nav-links">
+      <a class="brand" href="./" aria-label="Waky home"><img src="assets/waky-icon.png" alt="" width="34" height="34"><span>Waky</span></a>
+      <div class="chips">
+        <a href="#how">How it works</a>
         <a href="#modes">Modes</a>
-        <a href="#privacy">Privacy</a>
+        <a href="#offline">Offline</a>
         <a href="guide.html">Guide</a>
       </div>
-      <a class="btn btn-ink js-download" href="#get" data-magnetic><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 5.5 10.5 4.5v6.7H3zM11.6 4.3 21 3v8.2h-9.4zM3 12.3h7.5V19L3 18zM11.6 12.3H21V21l-9.4-1.3z"/></svg><span>Get Waky</span></a>
+      <a class="btn btn-pink js-download" href="#get" data-magnetic>Download <b>&darr;</b></a>
     </nav>
   </header>
 
   <main>
     <!-- HERO -->
-    <section class="hero" id="talk">
-      <div class="widgets" aria-hidden="true">
-      <div class="wd wd1" data-depth="26"><small>Email</small><b>Moving the demo to Friday</b><span class="ln"></span><span class="ln" style="width:62%"></span></div>
-      <div class="wd wd2" data-depth="-20"><b>Auto English</b><span class="sw"></span></div>
-      <div class="wd wd3" data-depth="34"><small>Bullets</small><div class="bl"><i></i><span></span></div><div class="bl"><i></i><span style="flex:.7"></span></div><div class="bl"><i></i><span style="flex:.85"></span></div></div>
-      <div class="wd wd4" data-depth="-28"><span class="pill pill--dark" data-state="listening"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span></div>
-    </div>
-
+    <section class="hero" id="top">
+      <div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div>
+      <div class="objs" aria-hidden="true">
+        <div class="obj o-mail" data-d="30"><small>Email</small><b>Moving the demo to Friday</b><i class="ln"></i><i class="ln s"></i></div>
+        <div class="obj o-bul" data-d="-26"><small>Bullets</small><span class="bl"><i></i><u></u></span><span class="bl"><i></i><u style="width:70%"></u></span><span class="bl"><i></i><u style="width:84%"></u></span></div>
+        <div class="obj o-pill" data-d="42"><span class="pill pill--dark" data-state="listening"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span></div>
+        <div class="obj o-keys" data-d="-34"><kbd>Ctrl</kbd><kbd>Win</kbd></div>
+        <div class="obj o-note" data-d="24"><small>Hinglish in</small><b>kal tak bhej dunga</b><small>English out</small><b>I will send it by tomorrow.</b></div>
+      </div>
       <div class="wrap hero-inner">
-        <p class="eyebrow js-hide" data-in>Voice to writing, anywhere on Windows</p>
-        <h1 class="display" data-split>Think out loud.<br><em>Waky writes it down.</em></h1>
-        <p class="lede js-hide" data-in>Hold a key and talk the way you really talk. Waky drops the ums, fixes the mid-sentence changes of heart, and pastes finished writing into whatever app you are in.</p>
+        <p class="mono js-hide" data-in>VOICE TO WRITING &middot; WINDOWS</p>
+        <h1 class="display" data-split>Say it messy.<br>Get it written.</h1>
+        <p class="lede js-hide" data-in>Hold a key and talk the way you really talk. Waky drops the ums, catches the changes of heart, and pastes finished writing into whatever app you are in.</p>
         <div class="cta js-hide" id="get" data-in>
-          <a class="btn btn-primary btn-lg js-download" href="#get" data-magnetic><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 5.5 10.5 4.5v6.7H3zM11.6 4.3 21 3v8.2h-9.4zM3 12.3h7.5V19L3 18zM11.6 12.3H21V21l-9.4-1.3z"/></svg><span>Download for Windows</span></a>
-          <a class="btn btn-ghost btn-lg" href="#shape" data-magnetic>See how it thinks</a>
+          <a class="btn btn-pink btn-lg js-download" href="#get" data-magnetic>Download for Windows <b>&rarr;</b></a>
+          <a class="btn btn-ink btn-lg" href="#how" data-magnetic>See how it thinks</a>
         </div>
-        <p class="micro js-hide" data-in>Free · <span class="js-version">v1.0.0</span> · <span class="js-size">about 110 MB</span> · Windows 10 and 11, 64-bit · bring your own key</p>
-        <p class="micro">No Python or extra installs needed. Windows may say "unknown publisher": click <b>More info</b>, then <b>Run anyway</b>. <a href="guide.html#install">Why?</a></p>
+        <p class="mono micro js-hide" data-in>FREE &middot; <span class="js-version">V1.0.0</span> &middot; <span class="js-size">ABOUT 110 MB</span> &middot; WINDOWS 10 + 11 &middot; BRING YOUR OWN KEY</p>
+        <p class="micro js-hide" data-in>No Python or extra installs. Windows may say "unknown publisher": click <b>More info</b>, then <b>Run anyway</b>. <a href="guide.html#install">Why?</a></p>
         <p class="note js-note" role="status">The installer link is not set on this preview yet.</p>
+      </div>
+    </section>
 
-        <div class="deck js-hide" data-in data-tilt>
-          <div class="deck-top">
-            <span class="dots"><i></i><i></i><i></i></span>
-            <span class="deck-title">Try it. Hold the pill, or hold <kbd>Space</kbd>, and "talk".</span>
+    <div class="strip" aria-hidden="true"><div class="track" data-track></div></div>
+
+    <!-- STORY: a sentence as squares -->
+    <section class="story" id="how" data-story>
+      <div class="story-stage">
+        <div class="wrap story-grid">
+          <aside class="annot">
+            <span class="mono">01 / HOW IT READS</span>
+            <p>One messy sentence, taken apart word by word.</p>
+            <ul class="key">
+              <li><i style="--c:#2e62ff"></i>Kept</li>
+              <li><i style="--c:#ffc933"></i>Filler</li>
+              <li><i style="--c:#9b6bff"></i>Repeat</li>
+              <li><i style="--c:#ff6b57"></i>Changed mind</li>
+            </ul>
+          </aside>
+          <div class="story-canvas"><canvas id="dots" aria-label="Animated squares showing a sentence being cleaned up"></canvas></div>
+          <div class="story-copy">
+            <h2 class="h2" data-split>What it does to a sentence.</h2>
+            <p class="count mono" id="storyCount">36 WORDS SAID</p>
+            <p class="story-line" id="storyLine">Scroll. Every square is a word you spoke.</p>
+            <p class="final" id="storyFinal">I was thinking we should move the demo to Friday, because Rahul is out until then. Can you tell him to send the slides by Thursday night?</p>
           </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TRY -->
+    <section class="try" id="try">
+      <div class="blob b4"></div>
+      <div class="wrap">
+        <div class="head">
+          <p class="mono">02 / TRY IT</p>
+          <h2 class="h2 on-blue" data-split>Hold the pill. Talk.</h2>
+          <p class="lede on-blue">Press and hold the pill, or hold <kbd>Space</kbd> while this section is on screen. A tap plays the whole thing.</p>
+        </div>
+        <div class="deck" data-tilt>
           <div class="deck-grid">
             <div class="col">
               <div class="label"><span>You say</span><b class="js-mode-label"></b></div>
@@ -82,219 +110,116 @@
             </div>
           </div>
           <div class="dock">
-            <button class="pill-btn" id="hold" aria-label="Hold to talk (or hold Space)" data-cursor="Hold">
+            <button class="pill-btn" id="hold" aria-label="Hold to talk (or hold Space)">
               <span class="pill" data-live data-state="idle"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
             </button>
             <div class="scen" role="tablist" aria-label="Demo scenarios" id="scen"></div>
           </div>
         </div>
       </div>
-
-      <div class="ribbons" aria-hidden="true">
-        <div class="ribbon r-ink"><div class="track" data-track="1"></div></div>
-        <div class="ribbon r-orange"><div class="track" data-track="-1"></div></div>
-      </div>
     </section>
 
-    <!-- MESSY -> CLEAN (scroll scrubbed) -->
-    <section class="clean" id="shape" data-clean>
-      <div class="clean-stage">
-        <div class="wrap clean-grid">
-          <div class="clean-copy">
-            <p class="eyebrow">What happens in between</p>
-            <h2 class="h2" data-split>You talk like a person. <em>It reads like a writer.</em></h2>
-            <ul class="legend">
-              <li data-chip="f"><i></i> Filler removed</li>
-              <li data-chip="x"><i></i> Change of mind caught</li>
-              <li data-chip="r"><i></i> Repeats merged</li>
-            </ul>
-            <p class="hint">Keep scrolling. This one is driven by your scroll.</p>
+    <!-- MODES carousel -->
+    <section class="modes" id="modes">
+      <div class="wrap">
+        <div class="head row">
+          <div>
+            <p class="mono">03 / YOUR RULES</p>
+            <h2 class="h2" data-split>Modes you write yourself.</h2>
+            <p class="lede">Say the phrase anywhere in a sentence. Waky removes it, follows it, and pastes the result.</p>
           </div>
-          <div class="paper" data-tilt>
-            <div class="paper-bar"><span class="stamp">raw</span><span class="stamp done">polished</span></div>
-            <p class="para" id="para" aria-label="Raw dictation turning into polished text"></p>
-          </div>
+          <div class="arrows"><button id="prev" aria-label="Previous">&larr;</button><button id="next" aria-label="Next">&rarr;</button></div>
         </div>
       </div>
+      <div class="rail" id="rail" tabindex="0" aria-label="Mode cards, scroll sideways">
+        <article class="mc c-lime"><div class="tags"><span>Built in</span><span>Work</span></div><h3>Write email</h3><p class="say mono">"write email, professional tone"</p><p>Subject line, greeting, body and a short sign-off. Your name comes from your standing instructions.</p></article>
+        <article class="mc c-white"><div class="tags"><span>Built in</span><span>Notes</span></div><h3>Bullet points</h3><p class="say mono">"bullet points"</p><p>Ideas grouped under a short heading. Never one bullet per sentence.</p></article>
+        <article class="mc c-indigo"><div class="tags"><span>Built in</span><span>AI</span></div><h3>Prompt mode</h3><p class="say mono">"prompt mode"</p><p>Turns rambling into a clear prompt: role, task, rules and the shape of the answer.</p></article>
+        <article class="mc c-sun"><div class="tags"><span>You wrote it</span><span>Creative</span></div><h3>Blog mode</h3><p class="say mono">"blog mode"</p><p>"Turn this into a warm short post in my voice, with a catchy title." That is the whole mode.</p></article>
+        <article class="mc c-coral"><div class="tags"><span>Auto</span><span>Hinglish</span></div><h3>Hinglish in, English out</h3><p class="say mono">just speak</p><p>Mix Hindi and English mid-sentence. Names and technical words survive.</p></article>
+        <article class="mc c-ink"><div class="tags"><span>Yours</span></div><h3>Add your own</h3><p class="say mono">Settings &gt; Commands</p><p>A name, a trigger phrase, one plain-language instruction. Optional output format. Done.</p></article>
+      </div>
     </section>
 
-    <!-- SPEED -->
-    <section class="speed" data-speed>
+    <!-- PLAYGROUND -->
+    <section class="play" id="play">
       <div class="wrap">
         <div class="head">
-          <p class="eyebrow">Speed</p>
-          <h2 class="h2" data-split>Speaking is <em>about 4x</em> faster than typing.</h2>
-          <p class="lede">Most people type around 40 words a minute and speak around 150. Waky closes the gap between thinking and a finished message.</p>
+          <p class="mono">04 / MAKE IT YOURS</p>
+          <h2 class="h2" data-split>Your tone. Your words.</h2>
         </div>
-        <div class="race">
-          <div class="lane" data-lane="key">
-            <div class="lane-h"><span>Keyboard</span><b><span data-count="40">0</span> wpm</b></div>
-            <p class="lane-t" data-text></p>
-            <div class="bar"><i></i></div>
-          </div>
-          <div class="lane hot" data-lane="voice">
-            <div class="lane-h"><span>Waky</span><b><span data-count="160">0</span> wpm</b></div>
-            <p class="lane-t" data-text></p>
-            <div class="bar"><i></i></div>
-          </div>
-          <button class="replay btn btn-ghost" data-replay data-magnetic>Race again</button>
-        </div>
-      </div>
-    </section>
-
-    <!-- HOW -->
-    <section class="how">
-      <div class="wrap">
-        <div class="head center">
-          <p class="eyebrow">How it works</p>
-          <h2 class="h2" data-split>Hold. Talk. <em>Let go.</em></h2>
-        </div>
-        <div class="steps">
-          <article class="card" data-tilt data-reveal>
-            <div class="art"><button class="keycap" aria-label="Press me"><span>Ctrl</span><span>Win</span></button></div>
-            <h3>Hold your hotkey</h3>
-            <p>Ctrl + Win by default. Pick any combo you like. F8 is always the backup.</p>
-          </article>
-          <article class="card" data-tilt data-reveal>
-            <div class="art"><div class="wave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div>
-            <h3>Say it however it comes</h3>
-            <p>Hinglish, half sentences, second thoughts. Waky works out what you meant.</p>
-          </article>
-          <article class="card" data-tilt data-reveal>
-            <div class="art"><div class="paste"><span></span><span></span><span></span><i></i></div></div>
-            <h3>Release to paste</h3>
-            <p>Finished text lands where your cursor is. Waky never presses Enter for you.</p>
-          </article>
-        </div>
-      </div>
-    </section>
-
-    <!-- BUILT AROUND YOU -->
-    <section class="around" id="modes">
-      <div class="wrap">
-        <div class="head">
-          <p class="eyebrow">Built around you</p>
-          <h2 class="h2" data-split>Your rules, <em>not ours.</em></h2>
-          <p class="lede">Dictation tools tidy up. Waky takes orders. Teach it your tone, your modes and your words.</p>
-        </div>
-        <div class="bento">
-          <div class="tile tone" data-tilt data-reveal>
-            <p class="tile-k">Tone</p>
-            <div class="toggle" data-toggle role="tablist">
-              <i class="thumb"></i>
-              <button class="on" data-tone="0">Formal</button><button data-tone="1">Casual</button><button data-tone="2">Very casual</button>
-            </div>
+        <div class="tiles">
+          <div class="tile t-blue" data-tilt data-reveal>
+            <p class="mono">TONE</p>
+            <div class="toggle" data-toggle role="tablist"><i class="thumb"></i><button class="on" data-tone="0">Formal</button><button data-tone="1">Casual</button><button data-tone="2">Very casual</button></div>
             <p class="tone-out" id="toneOut"></p>
           </div>
-
-          <div class="tile modes" data-tilt data-reveal>
-            <p class="tile-k">Your own modes</p>
-            <div class="mode-chips" id="modeChips"></div>
-            <div class="mode-card"><p class="mode-name" id="modeName"></p><p class="mode-text" id="modeText"></p></div>
-          </div>
-
-          <div class="tile vocab" data-tilt data-reveal>
-            <p class="tile-k">Learns your words</p>
+          <div class="tile t-lilac" data-tilt data-reveal>
+            <p class="mono">VOCABULARY</p>
             <form class="vocab-form" id="vocabForm" autocomplete="off">
               <input id="vocabIn" type="text" placeholder="Add a name or term" maxlength="24" aria-label="Add a word to your vocabulary">
-              <button class="btn btn-ink" type="submit" data-magnetic>Add</button>
+              <button class="btn btn-ink" type="submit">Add</button>
             </form>
             <div class="vocab-list" id="vocabList"></div>
-            <p class="vocab-hint">Waky spells these your way, every time.</p>
+            <p class="micro">Waky spells these your way, every time.</p>
           </div>
-
-          <div class="tile rewrite" data-tilt data-reveal>
-            <p class="tile-k">Select, speak, replace</p>
-            <p class="rw-text" id="rwText"></p>
-            <div class="rw-row"><span class="pill pill--dark mini" data-state="idle" id="rwPill"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span><button class="btn btn-ghost" id="rwBtn" data-magnetic>"Make it shorter"</button></div>
+          <div class="tile t-sun" data-tilt data-reveal>
+            <p class="mono">YOUR LANGUAGE</p>
+            <div class="word" id="langWord">नमस्ते</div>
+            <p class="micro">Switch between Hindi, Hinglish and English mid-sentence. Read it back in clean English, or keep your own language.</p>
           </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- LANGUAGES -->
-    <section class="langs">
-      <div class="wrap lang-grid">
-        <div>
-          <p class="eyebrow">Your language</p>
-          <h2 class="h2" data-split>Talk in yours. <em>Read it in clean English.</em></h2>
-          <p class="lede">Switch between Hindi, Hinglish and English mid-sentence. Waky returns natural English, or keeps your language if you prefer.</p>
-        </div>
-        <div class="globe" aria-hidden="true">
-          <div class="word" id="langWord">नमस्ते</div>
-          <div class="ring r1"></div><div class="ring r2"></div><div class="ring r3"></div>
-        </div>
-      </div>
-    </section>
-
-    <!-- ANYWHERE -->
-    <section class="where">
-      <div class="wrap">
-        <div class="head center">
-          <p class="eyebrow">Anywhere you type</p>
-          <h2 class="h2" data-split>If it has a cursor, <em>Waky works.</em></h2>
-        </div>
-        <div class="apps" id="apps"></div>
-      </div>
-    </section>
-
-    <!-- PILL STYLES -->
-    <section class="styles" id="styles">
-      <div class="wrap styles-grid">
-        <div>
-          <p class="eyebrow">Stays out of the way</p>
-          <h2 class="h2" data-split>Pick your <em>pill.</em></h2>
-          <p class="lede">A tiny indicator shows when Waky is listening, thinking or done. Choose the look. This whole page follows your pick.</p>
-          <div class="pick" id="pick" role="radiogroup" aria-label="Pill style">
-            <button role="radio" aria-checked="false" data-style="minimal">Minimal</button>
-            <button role="radio" aria-checked="true" data-style="dark">Island</button>
-            <button role="radio" aria-checked="false" data-style="amber">Amber</button>
-            <button role="radio" aria-checked="false" data-style="light">Light</button>
+          <div class="tile t-white" data-tilt data-reveal>
+            <p class="mono">THE PILL</p>
+            <p class="tile-big">Shift + click</p>
+            <p class="micro">opens settings. Alt + drag moves it. Pick a style, a colour and a size, and a spot on screen that never changes.</p>
+            <div class="pick" id="pick" role="radiogroup" aria-label="Pill style">
+              <button role="radio" aria-checked="true" data-style="dark">Island</button>
+              <button role="radio" aria-checked="false" data-style="minimal">Minimal</button>
+              <button role="radio" aria-checked="false" data-style="amber">Amber</button>
+              <button role="radio" aria-checked="false" data-style="light">Light</button>
+            </div>
+            <div class="stage-pill"><button class="pill-btn big" id="hold2" aria-label="Hold to preview the pill"><span class="pill" data-live data-state="idle"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span></button></div>
           </div>
-        </div>
-        <div class="stage-pill" data-tilt>
-          <div class="halo"></div>
-          <button class="pill-btn big" id="hold2" aria-label="Hold to preview the pill" data-cursor="Hold"><span class="pill" data-live data-state="idle"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span></button>
-          <p class="stage-hint">Press and hold</p>
         </div>
       </div>
     </section>
 
     <!-- OFFLINE + PRIVACY -->
     <section class="dark" id="offline">
+      <div class="blob b5"></div>
       <div class="wrap">
         <div class="head">
-          <p class="eyebrow on-dark">Never stuck</p>
-          <h2 class="h2 on-dark" data-split>When the free limit runs out, <em>Waky keeps listening.</em></h2>
-          <p class="lede on-dark">Download a local Whisper model once (75 MB to 3 GB, your pick). Waky switches to it on its own when Groq slows you down, and returns when the limit resets.</p>
+          <p class="mono">05 / NEVER STUCK</p>
+          <h2 class="h2 on-dark" data-split>The free limit ends. Waky keeps listening.</h2>
+          <p class="lede on-dark">Download a local Whisper model once (75 MB to 3 GB). Waky switches to it on its own when Groq slows you down, and comes back when the limit resets.</p>
         </div>
         <div class="flow" data-flow>
-          <svg class="flow-line" viewBox="0 0 1000 120" preserveAspectRatio="none" aria-hidden="true"><path d="M20 60 H980" /><path class="glow" d="M20 60 H980" /></svg>
           <div class="node"><b>Groq cloud</b><span>Fast, accurate, smart rewriting</span></div>
+          <i class="arrowline"></i>
           <div class="node hot"><b>Local Whisper</b><span>On your PC, offline</span></div>
+          <i class="arrowline"></i>
           <div class="node"><b>Back to Groq</b><span>Automatic, no settings</span></div>
         </div>
-
         <div class="facts" id="privacy">
           <div class="fact" data-reveal><b>Bring your own key</b><p>Waky ships with no key and runs no servers. You pay Groq directly, or nothing on their free tier.</p></div>
-          <div class="fact" data-reveal><b>Key stays in Windows</b><p>Your key lives in Windows Credential Manager, not in a settings file you might share.</p></div>
-          <div class="fact" data-reveal><b>No recordings kept</b><p>Audio is processed and discarded. Transcripts are not logged unless you opt in.</p></div>
-          <div class="fact" data-reveal><b>Local is a real option</b><p>Choose local mode and nothing leaves your PC. Settings and memory live in %APPDATA%\Waky.</p></div>
+          <div class="fact" data-reveal><b>Key stays in Windows</b><p>Stored in Windows Credential Manager, not in a settings file you might share.</p></div>
+          <div class="fact" data-reveal><b>No recordings kept</b><p>The microphone buffer lives in memory for under a second. Audio is never saved. Transcripts are not logged unless you opt in.</p></div>
+          <div class="fact" data-reveal><b>Local is a real option</b><p>Pick local mode and nothing leaves your PC. Settings and memory live in %APPDATA%\Waky.</p></div>
         </div>
       </div>
     </section>
 
     <!-- PRICING -->
-    <section class="price">
+    <section class="price" id="pricing">
       <div class="wrap">
         <div class="head center">
-          <p class="eyebrow">Pricing</p>
-          <h2 class="h2" data-split>Free. <em>Seriously.</em></h2>
+          <p class="mono">06 / PRICE</p>
+          <h2 class="h2" data-split>Free. Really.</h2>
         </div>
         <div class="plans">
-          <article class="plan" data-tilt data-reveal><p class="tile-k">Waky</p><b class="big">$0</b><p>The app, custom modes, vocabulary, selected-text rewrite and local fallback.</p></article>
-          <article class="plan hot" data-tilt data-reveal><p class="tile-k">Your Groq key</p><b class="big">Your usage</b><p>Cloud speech and rewriting run on your own Groq account, which has a free tier.</p></article>
-          <article class="plan" data-tilt data-reveal><p class="tile-k">Fully local</p><b class="big">$0</b><p>Skip the cloud and dictate offline with a Whisper model on your PC.</p></article>
+          <article class="plan p-white" data-tilt data-reveal><p class="mono">WAKY</p><b class="big">$0</b><p>The app, modes, vocabulary, selected-text rewrite and offline fallback.</p></article>
+          <article class="plan p-pink" data-tilt data-reveal><p class="mono">YOUR GROQ KEY</p><b class="big">Your usage</b><p>Cloud speech and rewriting run on your own Groq account, which has a free tier.</p></article>
+          <article class="plan p-sun" data-tilt data-reveal><p class="mono">FULLY LOCAL</p><b class="big">$0</b><p>Skip the cloud and dictate offline with a Whisper model on your PC.</p></article>
         </div>
       </div>
     </section>
@@ -302,38 +227,42 @@
     <!-- FAQ -->
     <section class="faq" id="faq">
       <div class="wrap narrow">
-        <div class="head"><h2 class="h2" data-split>Good <em>questions.</em></h2></div>
+        <div class="head"><p class="mono">07 / QUESTIONS</p><h2 class="h2" data-split>Good questions.</h2></div>
         <details data-reveal><summary>Windows says "Windows protected your PC".</summary><p>The installer is not code-signed yet, so SmartScreen warns about new apps. Click More info, then Run anyway. The guide shows where.</p></details>
-        <details data-reveal><summary>Does it work in every app?</summary><p>Waky pastes into whichever text field has focus: browsers, Gmail, WhatsApp Web, Notion, editors, chat apps. Elevated (administrator) windows can block pasting from normal apps.</p></details>
-        <details data-reveal><summary>How is this different from normal dictation?</summary><p>Normal dictation types what you said. Waky understands what you meant and follows instructions you speak or define, so you get the finished email, list or post.</p></details>
-        <details data-reveal><summary>Do I need an account?</summary><p>No. There is no Waky account. For cloud features you add your own Groq key. For local mode you need nothing.</p></details>
+        <details data-reveal><summary>Does it work in every app?</summary><p>Waky pastes into whichever text field has focus: browsers, Gmail, WhatsApp Web, Notion, editors, chat apps. Windows blocks pasting into apps running as administrator from a normal app.</p></details>
+        <details data-reveal><summary>Why does it keep the microphone open?</summary><p>So the first word is never clipped. Waky holds the last half second in memory and drops it. You can turn this off in Settings &gt; Audio, and Waky then opens the microphone only while you hold the key.</p></details>
+        <details data-reveal><summary>How do I open settings?</summary><p>Hold Shift and click the pill, or use the tray icon.</p></details>
+        <details data-reveal><summary>Do I need an account?</summary><p>No. For cloud features you add your own Groq key. For local mode you need nothing.</p></details>
         <details data-reveal><summary>What about Mac or Linux?</summary><p>Windows only for now. Other platforms are on the roadmap.</p></details>
       </div>
     </section>
 
     <!-- FINAL -->
     <section class="final">
+      <div class="blob b6"></div>
       <div class="wrap">
-        <h2 class="mega" data-split>Say it. <em>Done.</em></h2>
-        <div class="cta center">
-          <a class="btn btn-primary btn-lg js-download" href="#get" data-magnetic><svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M3 5.5 10.5 4.5v6.7H3zM11.6 4.3 21 3v8.2h-9.4zM3 12.3h7.5V19L3 18zM11.6 12.3H21V21l-9.4-1.3z"/></svg><span>Download for Windows</span></a>
-          <a class="btn btn-ghost btn-lg" href="guide.html" data-magnetic>Setup guide</a>
+        <h2 class="mega" data-split>Talk.<br>It's written.</h2>
+        <div class="cta">
+          <a class="btn btn-ink btn-lg js-download" href="#get" data-magnetic>Download for Windows <b>&rarr;</b></a>
+          <a class="btn btn-white btn-lg" href="guide.html" data-magnetic>Setup guide</a>
         </div>
       </div>
-      <div class="wordmark" aria-hidden="true">Waky</div>
     </section>
   </main>
 
   <footer class="foot">
     <div class="wrap">
-      <span>Waky <span class="js-version">v1.0.0</span> · For people who think faster than they type.</span>
-      <span><a href="guide.html">Guide</a><a href="#privacy">Privacy</a><a href="#faq">FAQ</a><a class="js-repo" href="#">GitHub</a></span>
+      <span class="mono">WAKY <span class="js-version">V1.0.0</span> &middot; FOR PEOPLE WHO THINK FASTER THAN THEY TYPE</span>
+      <span class="mono"><a href="guide.html">GUIDE</a><a href="#privacy">PRIVACY</a><a href="#faq">FAQ</a><a class="js-repo" href="#">GITHUB</a></span>
     </div>
   </footer>
 
+  <div class="hud hud-l mono" id="hudL" aria-hidden="true">SCROLL &darr;</div>
+  <div class="hud hud-r mono" id="hudR" aria-hidden="true"><b id="hudN">00</b> / <span id="hudName">TOP</span></div>
+
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
-  <script src="site-config.js"></script>
-  <script src="main.js"></script>
+  <script src="site-config.js?v=3"></script>
+  <script src="waky.js?v=3"></script>
 </body>
 </html>
