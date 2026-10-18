@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Waky setup guide</title>
+  <meta name="description" content="Install Waky, get a free Groq API key, pick your hotkey, build custom modes, and fix common problems.">
+  <meta name="theme-color" content="#fbf7ec">
+  <link rel="icon" href="favicon.ico">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <noscript><style>.reveal{opacity:1;transform:none}</style></noscript>
+</head>
+<body>
+  <header class="nav-shell">
+    <nav class="nav" aria-label="Main">
+      <a class="brand" href="./" aria-label="Waky home"><img src="assets/waky-icon.png" alt="" width="30" height="30"><span>Waky</span></a>
+      <div class="nav-links">
+        <a href="./#modes">Modes</a>
+        <a href="./#offline">Offline</a>
+        <a href="./#privacy">Privacy</a>
+        <a href="guide.html">Guide</a>
+      </div>
+      <a class="btn btn-ink js-download" href="./#get"><span>Get Waky</span></a>
+    </nav>
+  </header>
+
+  <main class="doc">
+    <div class="wrap">
+      <nav class="toc" aria-label="On this page">
+        <a href="#install">Install</a>
+        <a href="#verify">Verify download</a>
+        <a href="#groq">Get a Groq key</a>
+        <a href="#wizard">First-run setup</a>
+        <a href="#use">Using Waky</a>
+        <a href="#modes">Custom modes</a>
+        <a href="#offline">Offline fallback</a>
+        <a href="#fix">Troubleshooting</a>
+        <a href="#data">Your data</a>
+      </nav>
+
+      <article class="prose">
+        <p class="eyebrow">Setup guide</p>
+        <h1>From download to your first dictation.</h1>
+        <p>About two minutes. You need a Windows 11 PC, a microphone, and a free Groq account (or skip Groq and run fully offline).</p>
+
+        <h2 id="install">1. Install</h2>
+        <ol>
+          <li>Download <code>Waky-Setup</code> from the <a href="./#download">home page</a> and run it.</li>
+          <li>If Windows shows <b>Windows protected your PC</b>, click <b>More info</b>, then <b>Run anyway</b>. The installer is not code-signed yet, so SmartScreen warns about every new app.</li>
+          <li>Finish the installer. Waky opens, adds an icon to the system tray, and starts the setup wizard.</li>
+        </ol>
+        <p>The installer is per-user, so it does not ask for administrator rights.</p>
+
+        <h2 id="verify">Verify your download (optional)</h2>
+        <p>Open PowerShell in your Downloads folder and run <code>Get-FileHash .\Waky-Setup.exe</code>. The result should match this SHA-256:</p>
+        <p><code class="js-sha">published with each release</code></p>
+
+        <h2 id="groq">2. Get a free Groq API key</h2>
+        <p>Groq runs the speech recognition and the writing model. Waky never ships with a key, so you use your own.</p>
+        <ol>
+          <li>Open <a href="https://console.groq.com/keys" target="_blank" rel="noopener">console.groq.com/keys</a> and sign in. Google sign-in works.</li>
+          <li>Click <b>Create API Key</b> and name it <code>Waky</code>.</li>
+          <li>Copy the key. It starts with <code>gsk_</code>. Groq shows it only once.</li>
+          <li>Paste it into the Waky wizard and press <b>Verify key</b>. A green check means it works.</li>
+        </ol>
+        <div class="callout"><p>Your key is saved in Windows Credential Manager on your PC and is sent only to Groq. Treat it like a password and never paste it into a screenshot or chat.</p></div>
+
+        <h2 id="wizard">3. First-run setup</h2>
+        <p>The wizard has a few short screens:</p>
+        <ol>
+          <li><b>Engine.</b> Groq cloud (recommended) or local only.</li>
+          <li><b>Key.</b> Paste and verify your Groq key. Skipped for local only.</li>
+          <li><b>Hotkey.</b> Click the box and press the keys you want together. Use a modifier (Ctrl, Alt, Shift, Win) or a function key so normal typing never triggers it.</li>
+          <li><b>Pill style.</b> Pick the floating indicator you like. Change it later in Settings &gt; General.</li>
+          <li><b>Try it.</b> Click the practice box, hold your hotkey, speak, release.</li>
+          <li><b>Finish.</b> Choose whether Waky starts with Windows.</li>
+        </ol>
+
+        <h2 id="use">4. Using Waky</h2>
+        <p>Click into any text field, hold the hotkey, speak, and release. The text is pasted for you. Waky never presses Enter.</p>
+        <div class="table-scroll"><table>
+          <thead><tr><th>Key</th><th>What it does</th></tr></thead>
+          <tbody>
+            <tr><td><kbd>Ctrl</kbd> + <kbd>Win</kbd> (hold)</td><td>Push-to-talk. Default, changeable in Settings &gt; Hotkeys.</td></tr>
+            <tr><td><kbd>F8</kbd> (hold)</td><td>Backup push-to-talk if another app uses Ctrl+Win.</td></tr>
+            <tr><td><kbd>F9</kbd></td><td>Hands-free: press once to start, again to stop.</td></tr>
+            <tr><td><kbd>Esc</kbd></td><td>Cancel the current recording or processing.</td></tr>
+          </tbody>
+        </table></div>
+        <h3>Rewrite selected text</h3>
+        <p>Select text in any app, hold the hotkey, and say what you want: "make it shorter", "bullet points", "write email, professional tone". The selection is replaced with the result. With nothing selected, Waky just dictates.</p>
+        <h3>The floating pill</h3>
+        <p>Hover over the pill to reveal a gear that opens Settings. Hold <kbd>Alt</kbd> and drag to move it, and it remembers where you put it. If it ever goes missing, right-click the tray icon and choose <b>Reset Floating Bar Position</b>.</p>
+
+        <h2 id="modes">5. Custom modes</h2>
+        <p>Open <b>Settings &gt; Commands</b>.</p>
+        <ol>
+          <li>Under <b>My standing instructions</b>, write anything Waky should always know: who you are, your tone, how you sign emails.</li>
+          <li>Click <b>Add Command</b> to create a mode.</li>
+          <li>Set a <b>Display name</b> and one or more <b>Trigger phrases</b>, one per line, such as <code>blog mode</code>.</li>
+          <li>Under <b>Instruction for AI</b>, describe in plain language what the mode should do.</li>
+          <li>Optionally add an <b>Output format</b> to fix the layout, then press <b>Save Command</b>.</li>
+        </ol>
+        <p>Now say the trigger phrase anywhere in a sentence. Waky removes the phrase, follows your instruction, and pastes the result. You can combine modes: "write email, professional tone, extend".</p>
+        <div class="callout"><p>Custom modes and rewriting need the Groq key. Without it, Waky falls back to simple built-in cleanup.</p></div>
+
+        <h2 id="offline">6. Offline fallback</h2>
+        <p>If Groq's free usage limit is reached, Waky can switch to a Whisper model on your PC and switch back when the limit resets. To prepare for that, open <b>Settings &gt; Transcription</b>, pick a local model, and press <b>Download local model</b>.</p>
+        <div class="table-scroll"><table>
+          <thead><tr><th>Model</th><th>Size</th><th>Good for</th></tr></thead>
+          <tbody>
+            <tr><td><code>tiny</code></td><td>about 75 MB</td><td>Very low-end PCs, rough accuracy</td></tr>
+            <tr><td><code>base</code></td><td>about 145 MB</td><td>Default. Fast on most laptops</td></tr>
+            <tr><td><code>small</code></td><td>about 480 MB</td><td>Noticeably better accuracy</td></tr>
+            <tr><td><code>medium</code></td><td>about 1.5 GB</td><td>Strong accuracy, needs a decent CPU</td></tr>
+            <tr><td><code>large-v3</code></td><td>about 3 GB</td><td>Best accuracy, slowest</td></tr>
+          </tbody>
+        </table></div>
+        <p>Local mode only turns speech into text. Smart rewriting returns when Groq is available again.</p>
+
+        <h2 id="fix">Troubleshooting</h2>
+        <h3>"Groq rejected the request" or HTTP 401 / 403</h3>
+        <p>The key is wrong or revoked. Create a new one at console.groq.com/keys and paste it in Settings, or rerun the wizard.</p>
+        <h3>Nothing happens when I hold the hotkey</h3>
+        <p>Another app may own Ctrl+Win. Try F8, or pick a different combination in Settings &gt; Hotkeys. Check the tray menu that Waky is not paused.</p>
+        <h3>The text is not pasted</h3>
+        <p>Click into the text field first. Windows blocks pasting into apps running as administrator from a normal app, so run the target app normally.</p>
+        <h3>"Groq limit reached" and no local model</h3>
+        <p>Download a model in Settings &gt; Transcription, as described above.</p>
+        <h3>Wrong microphone</h3>
+        <p>Choose it in Settings &gt; Audio and run the quick mic test.</p>
+        <p>Still stuck? Errors are logged to <code>%APPDATA%\Waky\logs\error.log</code>. API keys are never written there.</p>
+
+        <h2 id="data">Your data</h2>
+        <p>Settings, custom modes, vocabulary and memory live in <code>%APPDATA%\Waky</code>. Your API key is in Windows Credential Manager. Uninstalling removes the app and its startup entry but keeps this data, so a reinstall picks up where you left off. Delete the folder to remove everything.</p>
+      </article>
+    </div>
+  </main>
+
+  <footer class="foot">
+    <div class="wrap">
+      <span>Waky · Made for people who think faster than they type.</span>
+      <span><a href="./">Home</a><a href="./#privacy">Privacy</a><a href="./#faq">FAQ</a></span>
+    </div>
+  </footer>
+
+  <script src="site-config.js"></script>
+  <script src="guide.js"></script>
+</body>
+</html>

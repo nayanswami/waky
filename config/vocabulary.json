@@ -1,0 +1,38 @@
+{
+  "words": [
+    "Waky",
+    "Groq",
+    "OpenAI",
+    "OpenRouter",
+    "ChatGPT",
+    "Codex",
+    "Notion",
+    "Gmail",
+    "WhatsApp",
+    "Wispr Flow",
+    "WhisperFlow",
+    "selected text rewrite",
+    "floating bar",
+    "command processor",
+    "prompt mode",
+    "rewrite and humanizer",
+    "UX Design",
+    "UI Design"
+  ],
+  "replacements": {
+    "chat gpt": "ChatGPT",
+    "charge gpt": "ChatGPT",
+    "code x": "Codex",
+    "what's app": "WhatsApp",
+    "waki": "Waky",
+    "wakey": "Waky",
+    "whacky": "Waky",
+    "groq": "Groq",
+    "open router": "OpenRouter",
+    "wispr flow": "Wispr Flow",
+    "whisper flow": "WhisperFlow",
+    "ux design": "UX Design",
+    "ui design": "UI Design",
+    "waky": "Waky"
+  }
+}

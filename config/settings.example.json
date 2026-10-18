@@ -1,0 +1,126 @@
+{
+  "general": {
+    "launch_on_startup": false,
+    "start_minimized": false,
+    "start_hidden_no_terminal": true,
+    "show_floating_bar_on_startup": true,
+    "sound_effects": false,
+    "always_on_top": true,
+    "theme": "black_white_minimal",
+    "paused": false
+  },
+  "floating_bar": {
+    "x": null,
+    "y": null,
+    "position": {
+      "x": null,
+      "y": null
+    },
+    "remember_position": true,
+    "alt_drag_only": true,
+    "visible": true,
+    "hidden": false
+  },
+  "hotkeys": {
+    "push_to_talk": "<ctrl>+<win>",
+    "push_to_talk_backup": "<f8>",
+    "toggle_recording": "<f9>",
+    "cancel": "<esc>",
+    "alternatives": [
+      "<ctrl>+<cmd>",
+      "<ctrl>+<shift>+<space>"
+    ]
+  },
+  "audio": {
+    "microphone": null,
+    "sample_rate": 16000,
+    "channels": 1,
+    "silence_trimming": true,
+    "min_record_seconds": 0.25
+  },
+  "transcription": {
+    "backend": "local",
+    "groq_model": "whisper-large-v3-turbo",
+    "model": "base",
+    "language_mode": "english",
+    "speed_mode": "balanced",
+    "engine_mode": "safe_cpu",
+    "safe_mode_implementation": "isolated_subprocess",
+    "device_preference": "cpu",
+    "compute_type_gpu": "float16",
+    "compute_type_cpu": "int8"
+  },
+  "output": {
+    "default_mode": "clean_casual",
+    "auto_paste": true,
+    "preserve_clipboard": true,
+    "never_press_enter": true
+  },
+  "command_processing": {
+    "voice_commands_enabled": true,
+    "auto_translate_to_english": true,
+    "auto_fix_grammar": true,
+    "command_rewrite_engine": "rule_based",
+    "groq_text_model": "llama-3.3-70b-versatile",
+    "local_memory_enabled": true,
+    "memory_auto_save_useful_vocabulary": true,
+    "memory_save_full_transcripts": false,
+    "memory_save_transcript_summaries": true,
+    "memory_save_command_outputs": true,
+    "memory_save_selected_rewrite_examples": false,
+    "memory_save_manual_remember_commands": true,
+    "memory_auto_detect_corrections": true,
+    "memory_use_cloud_for_summarization": true,
+    "memory_cloud_summary_provider": "auto",
+    "memory_use_current_project_context": true,
+    "memory_use_writing_preferences": true,
+    "memory_use_custom_vocabulary": true,
+    "memory_sensitive_storage_mode": "local_allowed",
+    "memory_active_project": "general",
+    "store_full_transcripts_for_learning": false,
+    "store_selected_text_history": false,
+    "store_rewrite_examples": false,
+    "save_only_manual_corrections": true,
+    "smart_selected_rewrite_enabled": true,
+    "selected_rewrite_ai_mode": "auto",
+    "preserve_clipboard_after_selected_rewrite": true,
+    "selected_capture_timeout_ms": 250,
+    "selected_text_rewrite_enabled": false,
+    "capture_selected_text_before_recording": true,
+    "replace_selected_text_automatically": true,
+    "selected_text_preserve_clipboard": true,
+    "command_prompt_mode_enabled": true,
+    "command_bullet_points_enabled": true,
+    "command_rewrite_humanizer_enabled": true,
+    "command_call_caps_small_enabled": true,
+    "command_professional_tone_enabled": true,
+    "command_casual_tone_enabled": true,
+    "command_write_email_enabled": true,
+    "command_extend_enabled": true
+  },
+  "privacy": {
+    "save_recordings": false,
+    "cloud_cleanup": false,
+    "provider": "local_basic",
+    "logs_level": "warning",
+    "include_transcript_in_logs": false
+  },
+  "providers": {
+    "groq": {
+      "enabled": false,
+      "api_key": ""
+    },
+    "openai": {
+      "enabled": false,
+      "api_key": ""
+    },
+    "openrouter": {
+      "enabled": false,
+      "api_key": ""
+    },
+    "gemini": {
+      "enabled": false,
+      "api_key": ""
+    }
+  }
+}

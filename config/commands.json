@@ -1,0 +1,137 @@
+{
+  "commands": [
+    {
+      "command_id": "write_email",
+      "display_name": "Write Email",
+      "enabled": true,
+      "trigger_phrases": [
+        "write email",
+        "write an email",
+        "email mode",
+        "make email",
+        "draft email"
+      ],
+      "command_type": "structure",
+      "priority": 1,
+      "instruction_template": "Rewrite the content as a clear, polite email. Fix grammar, improve clarity, soften inappropriate requests, and do not invent details.",
+      "built_in": true
+    },
+    {
+      "command_id": "prompt_mode",
+      "display_name": "Prompt Mode",
+      "enabled": true,
+      "trigger_phrases": [
+        "prompt mode",
+        "make this prompt",
+        "convert into prompt",
+        "turn this into prompt",
+        "ai prompt"
+      ],
+      "command_type": "structure",
+      "priority": 2,
+      "instruction_template": "Convert the content into a complete AI prompt with task, context, requirements, and expected output.",
+      "built_in": true
+    },
+    {
+      "command_id": "bullet_points",
+      "display_name": "Bullet Points",
+      "enabled": true,
+      "trigger_phrases": [
+        "bullet points",
+        "bullet point",
+        "make bullet points",
+        "convert into bullet points",
+        "turn this into points"
+      ],
+      "command_type": "structure",
+      "priority": 3,
+      "instruction_template": "Rewrite the content into clean bullet points with one short heading.",
+      "built_in": true
+    },
+    {
+      "command_id": "rewrite_humanizer",
+      "display_name": "Rewrite & Humanizer",
+      "enabled": true,
+      "trigger_phrases": [
+        "rewrite and humanizer",
+        "rewrite and humanize",
+        "humanizer",
+        "humanize this",
+        "rewrite this",
+        "rewrite"
+      ],
+      "command_type": "style",
+      "priority": 4,
+      "instruction_template": "Rewrite the content so it sounds natural, human, clear, and polished while preserving meaning.",
+      "built_in": true
+    },
+    {
+      "command_id": "extend",
+      "display_name": "Extend",
+      "enabled": true,
+      "trigger_phrases": [
+        "extend this",
+        "expand this",
+        "make it longer",
+        "elaborate",
+        "extend"
+      ],
+      "command_type": "expansion",
+      "priority": 5,
+      "instruction_template": "Expand the content with more clarity, context, and smoother explanation without inventing facts.",
+      "built_in": true
+    },
+    {
+      "command_id": "professional_tone",
+      "display_name": "Professional Tone",
+      "enabled": true,
+      "trigger_phrases": [
+        "professional tone",
+        "make professional",
+        "professionally",
+        "formal tone",
+        "make it professional",
+        "make this professional",
+        "make this formal",
+        "make it formal",
+        "professional",
+        "convert to professional tone"
+      ],
+      "command_type": "style",
+      "priority": 6,
+      "instruction_template": "Rewrite the content in a concise, professional, polished tone.",
+      "built_in": true
+    },
+    {
+      "command_id": "casual_tone",
+      "display_name": "Casual Tone",
+      "enabled": true,
+      "trigger_phrases": [
+        "casual tone",
+        "make casual",
+        "casually",
+        "friendly tone"
+      ],
+      "command_type": "style",
+      "priority": 7,
+      "instruction_template": "Rewrite the content in a casual, natural, friendly tone without emojis.",
+      "built_in": true
+    },
+    {
+      "command_id": "call_caps_small",
+      "display_name": "Call Caps Small",
+      "enabled": true,
+      "trigger_phrases": [
+        "call caps small",
+        "all caps small",
+        "caps small",
+        "lowercase",
+        "small letters"
+      ],
+      "command_type": "final_transform",
+      "priority": 10,
+      "instruction_template": "Convert the final output to lowercase while preserving URLs, emails, and code as much as possible.",
+      "built_in": true
+    }
+  ]
+}

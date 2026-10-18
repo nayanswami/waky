@@ -1,0 +1,16 @@
+{
+  "transcription": {
+    "backend": "local",
+    "groq_model": "whisper-large-v3-turbo",
+    "model": "base"
+  },
+  "providers": {
+    "groq": { "enabled": false, "api_key": "" },
+    "openai": { "enabled": false, "api_key": "" },
+    "openrouter": { "enabled": false, "api_key": "" }
+  },
+  "privacy": {
+    "save_recordings": false,
+    "include_transcript_in_logs": false
+  }
+}

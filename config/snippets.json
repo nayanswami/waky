@@ -1,0 +1,47 @@
+{
+  "enabled": true,
+  "snippets": [
+    {
+      "trigger": "my linkedin",
+      "value": "",
+      "enabled": true,
+      "triggers": [
+        "my linkedin",
+        "linkedin profile",
+        "paste my linkedin"
+      ],
+      "name": "linkedin"
+    },
+    {
+      "trigger": "my email",
+      "value": "",
+      "enabled": true,
+      "triggers": [
+        "my email",
+        "email address",
+        "paste my email"
+      ],
+      "name": "email"
+    },
+    {
+      "trigger": "my LinkedIn",
+      "value": "https://www.linkedin.com/in/your-profile",
+      "enabled": false
+    },
+    {
+      "trigger": "my email",
+      "value": "your.email@example.com",
+      "enabled": false
+    },
+    {
+      "trigger": "my portfolio",
+      "value": "https://your-portfolio.example.com",
+      "enabled": false
+    },
+    {
+      "trigger": "my phone number",
+      "value": "+91-0000000000",
+      "enabled": false
+    }
+  ]
+}
