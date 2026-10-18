@@ -80,26 +80,6 @@
     window.addEventListener("load", function () { moveThumb($("a.on", seg) || segLinks[0]); });
   }
 
-  /* ---------- custom cursor ---------- */
-  var cursor = $(".cursor");
-  if (fine && !RM && cursor) {
-    document.body.classList.add("has-cursor");
-    var ring = $(".cursor-ring", cursor), dot = $(".cursor-dot", cursor), label = $("em", ring);
-    var rx = gsap.quickTo(ring, "x", { duration: 0.45, ease: "power3" }), ry = gsap.quickTo(ring, "y", { duration: 0.45, ease: "power3" });
-    var dx = gsap.quickTo(dot, "x", { duration: 0.08 }), dy = gsap.quickTo(dot, "y", { duration: 0.08 });
-    window.addEventListener("pointermove", function (e) {
-      rx(e.clientX); ry(e.clientY); dx(e.clientX); dy(e.clientY);
-      var t = e.target.closest ? e.target.closest("a,button,summary,input,[data-cursor]") : null;
-      var lab = t && t.getAttribute("data-cursor");
-      cursor.classList.toggle("is-link", !!t && !lab);
-      cursor.classList.toggle("has-label", !!lab);
-      if (lab) label.textContent = lab;
-      cursor.classList.toggle("on-dark", !!(e.target.closest && e.target.closest(".dark")));
-    }, { passive: true });
-    window.addEventListener("pointerdown", function () { gsap.to(ring, { scale: 0.8, duration: 0.15 }); });
-    window.addEventListener("pointerup", function () { gsap.to(ring, { scale: 1, duration: 0.4, ease: "back.out(3)" }); });
-  }
-
   /* ---------- magnetic + tilt ---------- */
   if (fine && !RM) {
     $$("[data-magnetic]").forEach(function (el) {
@@ -112,7 +92,7 @@
     });
     $$("[data-tilt]").forEach(function (el) {
       var big = el.classList.contains("deck") || el.classList.contains("paper");
-      var max = big ? 2.2 : 6;
+      var max = big ? 1.6 : 3.5;
       gsap.set(el, { transformPerspective: 900 });
       var rX = gsap.quickTo(el, "rotationX", { duration: 0.6, ease: "power3" }), rY = gsap.quickTo(el, "rotationY", { duration: 0.6, ease: "power3" });
       el.addEventListener("pointermove", function (e) {
@@ -135,7 +115,7 @@
       .from(heroWords, { yPercent: 115, rotate: 4, duration: 1.2, stagger: 0.07 }, "-=0.55")
       .to(heroIn, { opacity: 1, y: 0, duration: 0.9, stagger: 0.1 }, "-=0.8")
       .from(".nav", { y: -40, opacity: 0, duration: 0.8 }, "-=1.1")
-      .from(".shape", { scale: 0, duration: 1.1, stagger: 0.12, ease: "elastic.out(1,.6)" }, "-=1.0");
+      .from(".wd", { scale: 0.8, opacity: 0, y: 30, duration: 1.1, stagger: 0.12, ease: "expo.out" }, "-=1.0");
   }
   if (RM) { $$(".js-hide").forEach(function (e) { e.style.opacity = 1; e.style.transform = "none"; }); var cu = $(".curtain"); if (cu) cu.style.display = "none"; }
   else {
@@ -147,15 +127,15 @@
 
   /* ---------- hero parallax ---------- */
   if (!RM) {
-    var shapes = $$(".shape");
+    var shapes = $$(".wd");
     if (fine) {
       window.addEventListener("pointermove", function (e) {
         var nx = e.clientX / window.innerWidth - 0.5, ny = e.clientY / window.innerHeight - 0.5;
         shapes.forEach(function (s) { var d = +s.getAttribute("data-depth") || 20; gsap.to(s, { x: nx * d * 2, y: ny * d * 2, duration: 1.2, ease: "power3.out", overwrite: "auto" }); });
       }, { passive: true });
     }
-    gsap.to(".s1", { yPercent: 70, ease: "none", scrollTrigger: { trigger: ".hero", start: "top top", end: "bottom top", scrub: true } });
-    gsap.to(".s3", { yPercent: -90, rotate: 25, ease: "none", scrollTrigger: { trigger: ".hero", start: "top top", end: "bottom top", scrub: true } });
+    gsap.to(".wd1, .wd3", { yPercent: 40, ease: "none", scrollTrigger: { trigger: ".hero", start: "top top", end: "bottom top", scrub: true } });
+    gsap.to(".wd2, .wd4", { yPercent: -30, ease: "none", scrollTrigger: { trigger: ".hero", start: "top top", end: "bottom top", scrub: true } });
   }
 
   /* ---------- ribbons (velocity-reactive marquee) ---------- */
@@ -170,13 +150,10 @@
     tweens.push(tw);
   });
   if (!RM) {
-    var rib = $$(".ribbon");
-    var skew = rib.map(function (r) { return gsap.quickTo(r, "skewX", { duration: 0.5, ease: "power3" }); });
     ScrollTrigger.create({ trigger: ".ribbons", start: "top bottom", end: "bottom top", onUpdate: function (s) {
       var v = s.getVelocity();
       gsap.to(tweens, { timeScale: 1 + Math.abs(v) / 320, duration: 0.25, overwrite: true });
       gsap.to(tweens, { timeScale: 1, duration: 1.2, delay: 0.25, overwrite: "auto" });
-      skew.forEach(function (q, i) { q(clamp(v / -260, -7, 7) * (i ? -1 : 1)); });
     } });
   }
 

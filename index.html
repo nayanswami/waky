@@ -1,25 +1,24 @@
 <!doctype html>
-<html lang="en" data-pill="minimal">
+<html lang="en" data-pill="dark">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Waky: think out loud, get it written</title>
   <meta name="description" content="Hold a key, talk the way you think, and Waky pastes clean, finished writing into any Windows app. Build your own modes. Bring your own key or stay offline.">
-  <meta name="theme-color" content="#fbf7ec">
+  <meta name="theme-color" content="#f2f2f7">
   <meta property="og:title" content="Waky: think out loud, get it written">
   <meta property="og:description" content="Voice to finished writing in any Windows app. Custom modes, your own key, offline fallback.">
   <meta property="og:image" content="assets/waky-icon.png">
   <link rel="icon" href="favicon.ico">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
   <noscript><style>.js-hide{opacity:1!important;transform:none!important}.curtain{display:none}</style></noscript>
 </head>
 <body>
-  <div class="curtain" aria-hidden="true"><div class="pill pill--dark" data-state="listening"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div>
+  <div class="curtain" aria-hidden="true"><div class="splash"><img src="assets/waky-icon.png" alt=""><i></i></div></div>
   <div class="progress" aria-hidden="true"><span></span></div>
-  <div class="cursor" aria-hidden="true"><span class="cursor-dot"></span><span class="cursor-ring"><em></em></span></div>
 
   <div class="announce">
     <span>Waky 1.0 is here for Windows. Free, and you bring your own key.</span>
@@ -47,10 +46,12 @@
   <main>
     <!-- HERO -->
     <section class="hero" id="talk">
-      <div class="shape s1" data-depth="26"></div>
-      <div class="shape s2" data-depth="-18"></div>
-      <div class="shape s3" data-depth="40"></div>
-      <svg class="orbit" viewBox="0 0 200 200" aria-hidden="true"><defs><path id="circ" d="M100,100 m-78,0 a78,78 0 1,1 156,0 a78,78 0 1,1 -156,0"/></defs><text><textPath href="#circ">say it messy · get it clean · say it messy · get it clean · </textPath></text></svg>
+      <div class="widgets" aria-hidden="true">
+      <div class="wd wd1" data-depth="26"><small>Email</small><b>Moving the demo to Friday</b><span class="ln"></span><span class="ln" style="width:62%"></span></div>
+      <div class="wd wd2" data-depth="-20"><b>Auto English</b><span class="sw"></span></div>
+      <div class="wd wd3" data-depth="34"><small>Bullets</small><div class="bl"><i></i><span></span></div><div class="bl"><i></i><span style="flex:.7"></span></div><div class="bl"><i></i><span style="flex:.85"></span></div></div>
+      <div class="wd wd4" data-depth="-28"><span class="pill pill--dark" data-state="listening"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span></div>
+    </div>
 
       <div class="wrap hero-inner">
         <p class="eyebrow js-hide" data-in>Voice to writing, anywhere on Windows</p>
@@ -245,8 +246,8 @@
           <h2 class="h2" data-split>Pick your <em>pill.</em></h2>
           <p class="lede">A tiny indicator shows when Waky is listening, thinking or done. Choose the look. This whole page follows your pick.</p>
           <div class="pick" id="pick" role="radiogroup" aria-label="Pill style">
-            <button role="radio" aria-checked="true" data-style="minimal">Minimal</button>
-            <button role="radio" aria-checked="false" data-style="dark">Dark glow</button>
+            <button role="radio" aria-checked="false" data-style="minimal">Minimal</button>
+            <button role="radio" aria-checked="true" data-style="dark">Island</button>
             <button role="radio" aria-checked="false" data-style="amber">Amber</button>
             <button role="radio" aria-checked="false" data-style="light">Light</button>
           </div>
