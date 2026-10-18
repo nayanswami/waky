@@ -25,7 +25,7 @@ from PySide6.QtWidgets import QApplication
 from app.audio_recorder import AudioRecorder, AudioResult
 from app.clipboard_inserter import ClipboardInserter
 from app.command_processor import process_text as process_voice_commands
-from app import ios_theme
+from app import http_pool, ios_theme, llm_engine
 from app.config_manager import ConfigManager
 from app.diagnostics import DiagnosticsService
 from app.hotkeys import HotkeyManager
@@ -152,6 +152,8 @@ class WakyApp(QObject):
             self._hotkey_error,
         )
         self.hotkeys.start()
+        self._mic_signature = (self.config.get("audio.keep_ready", True), self.config.get("audio.microphone"))
+        self._start_background_warmup()
         self.show_floating_bar(startup=True, reset=False)
         if not self.config.get("general.onboarding_done", False):
             QTimer.singleShot(600, self.open_onboarding)
@@ -164,6 +166,21 @@ class WakyApp(QObject):
         self.onboarding.show()
         self.onboarding.raise_()
         self.onboarding.activateWindow()
+
+    def _start_background_warmup(self) -> None:
+        """Get everything slow out of the way before the first dictation: mic stream, TLS to Groq, local model."""
+        def work() -> None:
+            try:
+                if self.config.get("audio.keep_ready", True):
+                    self.recorder.arm()
+                key = llm_engine.get_api_key(self.config.settings)
+                if key:
+                    http_pool.warm(key)
+                self.transcriber.prewarm()
+            except Exception:
+                self.logger.warning("Warm-up failed", exc_info=True)
+
+        threading.Thread(target=work, daemon=True, name="waky-warmup").start()
 
     def _repair_startup_if_enabled(self) -> None:
         if not self.config.get("general.launch_on_startup", False):
@@ -448,7 +465,14 @@ class WakyApp(QObject):
                 return False
 
     def _stop_recording(self) -> None:
+        """Keep listening briefly after release so the last word is never cut off."""
         self._transition(AppState.STOPPING)
+        tail = int(self.config.get("audio.tail_ms", 350) or 0)
+        QTimer.singleShot(max(0, tail), self._finish_stop_recording)
+
+    def _finish_stop_recording(self) -> None:
+        if self.state != AppState.STOPPING:
+            return  # cancelled during the tail
         stop_started = time.perf_counter()
         try:
             self.logger.info("Recording stop requested")
@@ -705,6 +729,11 @@ class WakyApp(QObject):
         self.mode_override = self.config.get("output.default_mode", "clean_casual")
         flags = Qt.Tool | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.WindowDoesNotAcceptFocus
         self.bar.setWindowFlags(flags)
+        signature = (self.config.get("audio.keep_ready", True), self.config.get("audio.microphone"))
+        if signature != self._mic_signature:
+            self._mic_signature = signature
+            self.recorder.disarm()
+            self._start_background_warmup()
         self.bar.settings = self.config.settings
         self.theme.apply(self.config.get("general.appearance", "system"))
         self.bar.apply_style()
@@ -840,6 +869,7 @@ class WakyApp(QObject):
         self.cleaned_up = True
         self.hotkeys.stop()
         self.recorder.cancel()
+        self.recorder.disarm()
         self.executor.shutdown(wait=False, cancel_futures=True)
         try:
             self.bar.animation.stop()

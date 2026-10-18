@@ -6,6 +6,9 @@ import time
 import pyautogui
 import pyperclip
 
+pyautogui.PAUSE = 0          # the default adds 100 ms after every key action
+pyautogui.FAILSAFE = False   # a mouse in the screen corner must not abort pasting
+
 
 class ClipboardInserter:
     def __init__(self, settings: dict, logger: logging.Logger) -> None:
@@ -27,9 +30,9 @@ class ClipboardInserter:
                 except Exception:
                     old_clipboard = None
             pyperclip.copy(text)
-            time.sleep(0.08)
+            time.sleep(0.03)
             pyautogui.hotkey("ctrl", "v")
-            time.sleep(0.25)
+            time.sleep(0.15)
             if preserve and old_clipboard is not None:
                 pyperclip.copy(old_clipboard)
             self.logger.info("Paste success")

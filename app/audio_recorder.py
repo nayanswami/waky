@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import threading
 import time
+from collections import deque
 from dataclasses import dataclass
 
 import numpy as np
@@ -35,6 +36,56 @@ class AudioRecorder:
         self.current_sample_rate = int(settings.get("audio", {}).get("sample_rate", 16000))
         self.current_device = settings.get("audio", {}).get("microphone")
         self._lock = threading.Lock()
+        # "Keep microphone ready": one stream stays open and the last ~0.45 s lives in RAM only,
+        # so the first word is never clipped and recording starts instantly. Nothing is stored or sent.
+        self._preroll: deque = deque()
+        self._preroll_samples = 0
+        self._persistent = False
+
+    PREROLL_SECONDS = 0.45
+
+    @property
+    def keep_ready(self) -> bool:
+        return bool(self.settings.get("audio", {}).get("keep_ready", True))
+
+    def arm(self) -> bool:
+        """Open the persistent input stream. Safe to call repeatedly; returns True when it is running."""
+        with self._lock:
+            if self._persistent and self.stream is not None and getattr(self.stream, "active", False):
+                return True
+            if self.is_recording:
+                return False
+            try:
+                stream, sample_rate, device = self._open_input_stream(self._callback)
+                stream.start()
+            except Exception:
+                self.logger.warning("Could not keep the microphone ready; falling back to open-on-press", exc_info=True)
+                self.stream = None
+                self._persistent = False
+                return False
+            self.stream = stream
+            self._persistent = True
+            self.current_sample_rate = sample_rate
+            self.current_device = device
+            audio_settings = self.settings.setdefault("audio", {})
+            audio_settings.update({"sample_rate": sample_rate, "channels": 1, "microphone": device})
+            self._preroll.clear()
+            self._preroll_samples = 0
+            self.logger.info("Microphone armed sample_rate=%s device=%s", sample_rate, device)
+            return True
+
+    def disarm(self) -> None:
+        with self._lock:
+            stream, self.stream, self._persistent = self.stream, None, False
+            self.is_recording = False
+            self._preroll.clear()
+            self._preroll_samples = 0
+        if stream:
+            try:
+                stream.stop()
+                stream.close()
+            except Exception:
+                self.logger.warning("Failed closing audio stream", exc_info=True)
 
     def list_microphones(self) -> list[dict]:
         devices = sd.query_devices()
@@ -67,12 +118,25 @@ class AudioRecorder:
         with self._lock:
             if self.is_recording:
                 return
+            if self._persistent and self.stream is not None and getattr(self.stream, "active", False):
+                pre = list(self._preroll)
+                self.frames = pre
+                lead = sum(len(b) for b in pre) / float(self.current_sample_rate or 16000)
+                self.started_at = time.perf_counter() - lead
+                self.is_recording = True
+                self.logger.info("Recording started instantly (pre-roll %.2fs)", lead)
+                return
+        # not armed (setting off, device lost, or first press): open a stream now
+        if self.keep_ready and self.arm():
+            return self.start()
+        with self._lock:
             audio_settings = self.settings.get("audio", {})
             self.frames = []
             self.started_at = time.perf_counter()
             try:
                 self.stream, sample_rate, device = self._open_input_stream(self._callback)
                 self.stream.start()
+                self._persistent = False
                 self.is_recording = True
                 self.current_sample_rate = sample_rate
                 self.current_device = device
@@ -173,15 +237,25 @@ class AudioRecorder:
     def _callback(self, indata: np.ndarray, frames: int, time_info, status) -> None:
         if status:
             self.logger.warning("Audio input status: %s", status)
-        self.frames.append(indata.copy())
+        block = indata.copy()
+        if self.is_recording:
+            self.frames.append(block)
+            return
+        self._preroll.append(block)
+        self._preroll_samples += len(block)
+        limit = int(self.PREROLL_SECONDS * float(self.current_sample_rate or 16000))
+        while self._preroll and self._preroll_samples - len(self._preroll[0]) >= limit:
+            self._preroll_samples -= len(self._preroll.popleft())
 
     def stop(self) -> AudioResult | None:
         with self._lock:
             if not self.is_recording:
                 return None
-            stream = self.stream
-            self.stream = None
             self.is_recording = False
+            stream = None if self._persistent else self.stream
+            if not self._persistent:
+                self.stream = None
+            frames, self.frames = self.frames, []
         if stream:
             try:
                 stream.stop()
@@ -191,13 +265,11 @@ class AudioRecorder:
 
         duration = time.perf_counter() - self.started_at
         min_duration = float(self.settings.get("audio", {}).get("min_record_seconds", 0.25))
-        if duration < min_duration or not self.frames:
-            self.frames = []
-            self.logger.info("Recording ignored duration=%.3fs frames=%s", duration, len(self.frames))
+        if duration < min_duration or not frames:
+            self.logger.info("Recording ignored duration=%.3fs frames=%s", duration, len(frames))
             return None
 
-        samples = np.concatenate(self.frames, axis=0).reshape(-1).astype(np.float32)
-        self.frames = []
+        samples = np.concatenate(frames, axis=0).reshape(-1).astype(np.float32)
         if self.settings.get("audio", {}).get("silence_trimming", True):
             samples = self.trim_silence(samples)
         sample_rate = int(self.current_sample_rate or self.settings.get("audio", {}).get("sample_rate", 16000))
@@ -206,8 +278,9 @@ class AudioRecorder:
 
     def cancel(self) -> None:
         with self._lock:
-            stream = self.stream
-            self.stream = None
+            stream = None if self._persistent else self.stream
+            if not self._persistent:
+                self.stream = None
             self.is_recording = False
             self.frames = []
         if stream:
@@ -217,7 +290,7 @@ class AudioRecorder:
             except Exception:
                 self.logger.warning("Failed cancelling audio stream", exc_info=True)
 
-    def trim_silence(self, samples: np.ndarray, threshold: float = 0.012, padding_ms: int = 120) -> np.ndarray:
+    def trim_silence(self, samples: np.ndarray, threshold: float = 0.005, padding_ms: int = 320) -> np.ndarray:
         if samples.size == 0:
             return samples
         mask = np.abs(samples) > threshold
@@ -225,7 +298,7 @@ class AudioRecorder:
             return samples
         start = int(np.argmax(mask))
         end = int(len(mask) - np.argmax(mask[::-1]))
-        pad = int(self.settings.get("audio", {}).get("sample_rate", 16000) * padding_ms / 1000)
+        pad = int(float(self.current_sample_rate or 16000) * padding_ms / 1000)
         start = max(0, start - pad)
         end = min(len(samples), end + pad)
         return samples[start:end]

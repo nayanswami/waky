@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import http.client
 import json
 import logging
 import os
@@ -8,6 +9,8 @@ from dataclasses import dataclass, field
 from typing import Any, Sequence
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
+
+from . import http_pool
 
 
 LOGGER = logging.getLogger("waky")
@@ -87,14 +90,19 @@ def get_api_key(settings: dict | None) -> str:
     return os.environ.get("GROQ_API_KEY", "").strip()
 
 
-def get_model(settings: dict | None) -> str:
+FAST_MODEL = "llama-3.1-8b-instant"
+
+
+def get_model(settings: dict | None, fast: bool = False) -> str:
+    """Plain dictation cleanup uses the small fast model; modes and selected-text rewrites use the big one."""
     if isinstance(settings, dict):
         commands = settings.get("command_processing", {})
         if isinstance(commands, dict):
-            model = str(commands.get("groq_text_model", "")).strip()
+            key = "groq_fast_model" if fast else "groq_text_model"
+            model = str(commands.get(key, "")).strip()
             if model:
                 return model
-    return DEFAULT_MODEL
+    return FAST_MODEL if fast else DEFAULT_MODEL
 
 
 def build_user_prompt(req: RewriteRequest) -> str:
@@ -135,52 +143,40 @@ def _strip_wrapping(text: str) -> str:
 
 
 def chat(api_key: str, model: str, messages: list[dict[str, str]], temperature: float = 0.3, timeout: float = 20) -> str:
-    """One Groq chat completion. Raises LLMRateLimited on 429, LLMError otherwise."""
-    payload = {"model": model, "temperature": temperature, "messages": messages}
-    last_exc: Exception | None = None
+    """One Groq chat completion over a kept-alive connection. Raises LLMRateLimited on 429, LLMError otherwise."""
+    body = json.dumps({"model": model, "temperature": temperature, "messages": messages}).encode("utf-8")
+    headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json", "User-Agent": USER_AGENT}
+    last: Exception | None = None
     for attempt in range(2):
-        request = Request(
-            GROQ_CHAT_URL,
-            data=json.dumps(payload).encode("utf-8"),
-            headers={
-                "Authorization": f"Bearer {api_key}",
-                "Content-Type": "application/json",
-                "User-Agent": USER_AGENT,
-            },
-            method="POST",
-        )
         try:
-            with urlopen(request, timeout=timeout) as response:
-                data: dict[str, Any] = json.loads(response.read().decode("utf-8"))
-            text = data.get("choices", [{}])[0].get("message", {}).get("content", "") or ""
+            status, hdrs, data = http_pool.CHAT.request("POST", "/openai/v1/chat/completions", body, headers, timeout)
+        except (OSError, http.client.HTTPException) as exc:
+            last = exc
+            STATUS.last_error = str(exc)
+            time.sleep(0.2)
+            continue
+        if status == 200:
+            payload: dict[str, Any] = json.loads(data.decode("utf-8"))
             STATUS.last_ok = time.time()
             STATUS.last_error = ""
-            return text
-        except HTTPError as exc:
-            body = ""
+            return payload.get("choices", [{}])[0].get("message", {}).get("content", "") or ""
+        text = data.decode("utf-8", "replace")[:300]
+        if status == 429:
             try:
-                body = exc.read().decode("utf-8", "replace")[:300]
-            except Exception:
-                pass
-            if exc.code == 429:
-                try:
-                    retry_after = float(exc.headers.get("retry-after", "60"))
-                except (TypeError, ValueError):
-                    retry_after = 60.0
-                STATUS.cooldown_until = time.time() + retry_after
-                STATUS.last_error = "rate limited"
-                raise LLMRateLimited(retry_after) from exc
-            STATUS.last_error = f"HTTP {exc.code}"
-            if exc.code in (401, 403):
-                raise LLMError(f"Groq rejected the request (HTTP {exc.code}). Check your API key. {body}") from exc
-            last_exc = exc
-            if exc.code < 500:
-                break
-        except (URLError, TimeoutError, OSError, ValueError) as exc:
-            STATUS.last_error = str(exc)
-            last_exc = exc
-        time.sleep(0.4)
-    raise LLMError(f"Groq request failed: {last_exc}") from last_exc
+                retry_after = float(hdrs.get("retry-after", "60"))
+            except (TypeError, ValueError):
+                retry_after = 60.0
+            STATUS.cooldown_until = time.time() + retry_after
+            STATUS.last_error = "rate limited"
+            raise LLMRateLimited(retry_after)
+        STATUS.last_error = f"HTTP {status}"
+        if status in (401, 403):
+            raise LLMError(f"Groq rejected the request (HTTP {status}). Check your API key. {text}")
+        last = RuntimeError(f"HTTP {status} {text}")
+        if status < 500:
+            break
+        time.sleep(0.3)
+    raise LLMError(f"Groq request failed: {last}") from last
 
 
 def rewrite(req: RewriteRequest, settings: dict | None) -> str:
@@ -191,7 +187,8 @@ def rewrite(req: RewriteRequest, settings: dict | None) -> str:
     if STATUS.rate_limited:
         raise LLMRateLimited(STATUS.cooldown_until - time.time())
     options = (settings or {}).get("command_processing", {}) if isinstance(settings, dict) else {}
-    model = get_model(settings)
+    fast = not req.modes and not req.selected_text.strip()
+    model = get_model(settings, fast)
     LOGGER.info("[LLM] model=%s modes=%s selected=%s", model, [m.key for m in req.modes], bool(req.selected_text))
     text = chat(
         api_key,

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import http.client
 import importlib.util
 import json
 import os
@@ -19,7 +20,7 @@ from urllib.request import Request, urlopen
 import numpy as np
 from scipy.io import wavfile
 
-from . import llm_engine, model_manager
+from . import http_pool, llm_engine, model_manager
 from .utils import DATA_DIR, FROZEN, PROJECT_ROOT
 
 
@@ -59,6 +60,19 @@ class FasterWhisperTranscriber:
                 self.on_notice(message)
             except Exception:
                 pass
+
+    def prewarm(self) -> None:
+        """Load the local model in the background so the first fallback or offline dictation is not slow."""
+        try:
+            transcription = self.settings.get("transcription", {})
+            if transcription.get("backend", "auto_fallback") == "groq" or not self.faster_whisper_installed():
+                return
+            if transcription.get("engine_mode") == "safe_cpu" or not model_manager.is_downloaded(transcription.get("model", "base")):
+                return
+            with self.transcriber_lock:
+                self._load_model()
+        except Exception:
+            self.logger.warning("Local model prewarm failed", exc_info=True)
 
     def faster_whisper_installed(self) -> bool:
         return importlib.util.find_spec("faster_whisper") is not None
@@ -299,31 +313,25 @@ class FasterWhisperTranscriber:
         )
         body.extend(file_bytes)
         body.extend(f"\r\n--{boundary}--\r\n".encode("utf-8"))
-        request = Request(
-            self.GROQ_URL,
-            data=bytes(body),
-            headers={
-                "Authorization": f"Bearer {api_key}",
-                "Content-Type": f"multipart/form-data; boundary={boundary}",
-                "User-Agent": "Waky/1.0",
-            },
-            method="POST",
-        )
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": f"multipart/form-data; boundary={boundary}",
+            "User-Agent": "Waky/1.0",
+        }
         try:
-            with urlopen(request, timeout=45) as response:
-                return json.loads(response.read().decode("utf-8"))
-        except HTTPError as exc:
-            if exc.code == 429:
-                try:
-                    retry_after = float(exc.headers.get("retry-after", "60"))
-                except (TypeError, ValueError):
-                    retry_after = 60.0
-                llm_engine.STT_STATUS.cooldown_until = time.time() + retry_after
-                raise GroqRateLimited(retry_after) from exc
-            detail = exc.read().decode("utf-8", errors="replace")
-            raise RuntimeError(f"Groq API error status={exc.code} job_id={job_id} body={detail}") from exc
-        except URLError as exc:
+            status, hdrs, data = http_pool.STT.request("POST", "/openai/v1/audio/transcriptions", bytes(body), headers, timeout=45)
+        except (OSError, http.client.HTTPException) as exc:
             raise RuntimeError(f"Groq API network error job_id={job_id}: {exc}") from exc
+        if status == 429:
+            try:
+                retry_after = float(hdrs.get("retry-after", "60"))
+            except (TypeError, ValueError):
+                retry_after = 60.0
+            llm_engine.STT_STATUS.cooldown_until = time.time() + retry_after
+            raise GroqRateLimited(retry_after)
+        if status != 200:
+            raise RuntimeError(f"Groq API error status={status} job_id={job_id} body={data.decode('utf-8', 'replace')}")
+        return json.loads(data.decode("utf-8"))
 
     def _groq_api_key(self) -> str:
         provider_key = self.settings.get("providers", {}).get("groq", {}).get("api_key", "").strip()
@@ -351,6 +359,7 @@ class FasterWhisperTranscriber:
             language=language,
             task=task,
             vad_filter=True,
+            vad_parameters={"min_silence_duration_ms": 700, "speech_pad_ms": 450},
             beam_size=3,
             condition_on_previous_text=False,
         )
@@ -386,6 +395,7 @@ class FasterWhisperTranscriber:
             language=language,
             task=task,
             vad_filter=True,
+            vad_parameters={"min_silence_duration_ms": 700, "speech_pad_ms": 450},
             beam_size=3,
             condition_on_previous_text=False,
         )

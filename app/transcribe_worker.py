@@ -46,6 +46,7 @@ def main(argv: list[str] | None = None) -> int:
             language=args.language or None,
             task=args.task,
             vad_filter=True,
+            vad_parameters={"min_silence_duration_ms": 700, "speech_pad_ms": 450},
             beam_size=3,
             condition_on_previous_text=False,
         )

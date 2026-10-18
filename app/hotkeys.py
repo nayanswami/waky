@@ -162,7 +162,7 @@ class HotkeyManager:
     def _schedule_push_start(self) -> None:
         if self.pending_push_timer or self.push_active:
             return
-        self.pending_push_timer = threading.Timer(0.12, self._fire_push_start)
+        self.pending_push_timer = threading.Timer(0.06, self._fire_push_start)
         self.pending_push_timer.daemon = True
         self.pending_push_timer.start()
 

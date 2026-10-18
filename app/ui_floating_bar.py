@@ -4,7 +4,7 @@ import time
 
 from PySide6.QtCore import QEvent, QPoint, QRectF, Qt, QTimer, Signal
 from PySide6.QtGui import QAction, QCursor, QPainter
-from PySide6.QtWidgets import QApplication, QMenu, QPushButton, QSystemTrayIcon, QWidget
+from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon, QWidget
 
 from . import pill_styles
 
@@ -23,7 +23,6 @@ class FloatingBar(QWidget):
     position_changed = Signal(int, int)
 
     BOTTOM_MARGIN = 4
-    GEAR_W, GEAR_H = 26, 20
 
     def __init__(self, settings: dict, parent=None) -> None:
         super().__init__(parent)
@@ -42,11 +41,6 @@ class FloatingBar(QWidget):
         self.setWindowTitle("Waky")
         self.setToolTip("")
         self._apply_window_flags()
-        self.settings_button = self._icon_button()
-        self.settings_button.setParent(self)
-        self.settings_button.clicked.connect(self.settings_requested.emit)
-        self.settings_button.installEventFilter(self)
-        self.settings_button.hide()
         self._read_look()
         self._apply_size()
         self._place_from_settings()
@@ -54,11 +48,6 @@ class FloatingBar(QWidget):
         self.animation = QTimer(self)
         self.animation.timeout.connect(self._tick)
         self.animation.start(16)
-
-        self.hide_controls_timer = QTimer(self)
-        self.hide_controls_timer.setSingleShot(True)
-        self.hide_controls_timer.setInterval(550)
-        self.hide_controls_timer.timeout.connect(self._maybe_hide_controls)
 
         self.keep_on_top_timer = QTimer(self)
         self.keep_on_top_timer.timeout.connect(self.keep_on_top)
@@ -76,10 +65,8 @@ class FloatingBar(QWidget):
 
     def _apply_size(self) -> None:
         w = int(self.pill_style.active_size[0] * self.scale_factor + 34)
-        h = int(self.GEAR_H + 8 + self.pill_style.active_size[1] * self.scale_factor + self.BOTTOM_MARGIN * self.scale_factor + 6)
-        self.setFixedSize(max(w, 70), max(h, 46))
-        self.settings_button.setFixedSize(self.GEAR_W, self.GEAR_H)
-        self.settings_button.move((self.width() - self.GEAR_W) // 2, 0)
+        h = int(self.pill_style.active_size[1] * self.scale_factor + self.BOTTOM_MARGIN * self.scale_factor + 14)
+        self.setFixedSize(max(w, 70), max(h, 34))
 
     def apply_look(self, key: str | None = None) -> None:
         """Re-read style, accent and size from settings (or preview `key`) and give the pill a spring kick."""
@@ -99,14 +86,6 @@ class FloatingBar(QWidget):
         self.setWindowFlags(flags)
         self.setAttribute(Qt.WA_TranslucentBackground, True)
         self.setFocusPolicy(Qt.NoFocus)
-
-    def _icon_button(self) -> QPushButton:
-        button = QPushButton("⚙")
-        button.setObjectName("gear")
-        button.setToolTip("")
-        button.setFocusPolicy(Qt.NoFocus)
-        button.setCursor(Qt.PointingHandCursor)
-        return button
 
     # ---------- position ----------
     def _place_from_settings(self) -> None:
@@ -190,38 +169,12 @@ class FloatingBar(QWidget):
             if painter.isActive():
                 painter.end()
 
-    # ---------- hover gear + drag ----------
-    def enterEvent(self, event) -> None:
-        self.hovered = True
-        self._show_controls()
-        super().enterEvent(event)
-
-    def leaveEvent(self, event) -> None:
-        self.hovered = False
-        self.hide_controls_timer.start()
-        super().leaveEvent(event)
-
-    def eventFilter(self, watched, event) -> bool:
-        if watched is self.settings_button:
-            if event.type() == QEvent.Enter:
-                self._show_controls()
-            elif event.type() == QEvent.Leave:
-                self.hide_controls_timer.start()
-        return super().eventFilter(watched, event)
-
-    def _show_controls(self) -> None:
-        self.hide_controls_timer.stop()
-        self.controls_visible = True
-        self.settings_button.show()
-
-    def _maybe_hide_controls(self) -> None:
-        if self.underMouse() or self.settings_button.underMouse():
-            return
-        self.controls_visible = False
-        self.settings_button.hide()
-        self.update()
-
+    # ---------- Shift+click opens settings, Alt+drag moves ----------
     def mousePressEvent(self, event) -> None:
+        if event.button() == Qt.LeftButton and bool(event.modifiers() & Qt.ShiftModifier):
+            self.settings_requested.emit()
+            event.accept()
+            return
         alt_drag_only = self.settings.get("floating_bar", {}).get("alt_drag_only", True)
         if event.button() == Qt.LeftButton and (bool(event.modifiers() & Qt.AltModifier) or not alt_drag_only):
             self.drag_offset = event.globalPosition().toPoint() - self.frameGeometry().topLeft()
