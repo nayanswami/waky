@@ -34,6 +34,7 @@
         <a href="#groq">Get a Groq key</a>
         <a href="#wizard">First-run setup</a>
         <a href="#use">Using Waky</a>
+        <a href="#updates">Updates</a>
         <a href="#modes">Custom modes</a>
         <a href="#offline">Offline fallback</a>
         <a href="#fix">Troubleshooting</a>
@@ -68,15 +69,16 @@
         <div class="callout"><p>Your key is saved in Windows Credential Manager on your PC and is sent only to Groq. Treat it like a password and never paste it into a screenshot or chat.</p></div>
 
         <h2 id="wizard">3. First-run setup</h2>
-        <p>The wizard has a few short screens:</p>
+        <p>The setup assistant has a few short steps. Closing it counts as skipping, and it never reappears by itself; reopen it any time from Settings &gt; Help.</p>
         <ol>
           <li><b>Engine.</b> Groq cloud (recommended) or local only.</li>
           <li><b>Key.</b> Paste and verify your Groq key. Skipped for local only.</li>
-          <li><b>Hotkey.</b> Click the box and press the keys you want together. Use a modifier (Ctrl, Alt, Shift, Win) or a function key so normal typing never triggers it.</li>
-          <li><b>Pill style.</b> Pick the floating indicator you like. Change it later in Settings &gt; General.</li>
-          <li><b>Try it.</b> Click the practice box, hold your hotkey, speak, release.</li>
-          <li><b>Finish.</b> Choose whether Waky starts with Windows.</li>
+          <li><b>Hotkey.</b> Click the box and press the keys you want together, or a middle / side mouse button. Use a modifier (Ctrl, Alt, Shift, Win), a function key or a mouse button so normal typing never triggers it.</li>
+          <li><b>Pill.</b> Pick the style, colour and size of the floating indicator.</li>
+          <li><b>Behaviour.</b> Show the pill always, only while dictating, or never. Choose whether Waky starts with Windows (on by default), plays soft sounds, and checks for updates.</li>
+          <li><b>Check and try it.</b> A quick system check, then a practice box: hold your hotkey, speak, release.</li>
         </ol>
+        <p>After setup, Waky starts with Windows by itself: it sits in the tray and the pill appears. No window opens.</p>
 
         <h2 id="use">4. Using Waky</h2>
         <p>Click into any text field, hold the hotkey, speak, and release. The text is pasted for you. Waky never presses Enter.</p>
@@ -87,12 +89,18 @@
             <tr><td><kbd>F8</kbd> (hold)</td><td>Backup push-to-talk if another app uses Ctrl+Win.</td></tr>
             <tr><td><kbd>F9</kbd></td><td>Hands-free: press once to start, again to stop.</td></tr>
             <tr><td><kbd>Esc</kbd></td><td>Cancel the current recording or processing.</td></tr>
+            <tr><td>Mouse middle / Back / Forward</td><td>Optional. Set any of them as a hotkey in Settings &gt; Hotkeys.</td></tr>
+            <tr><td>Tray &gt; Paste Last Result</td><td>Pastes your most recent dictation again. You can give it a hotkey too.</td></tr>
           </tbody>
         </table></div>
         <h3>Rewrite selected text</h3>
         <p>Select text in any app, hold the hotkey, and say what you want: "make it shorter", "bullet points", "write email, professional tone". The selection is replaced with the result. With nothing selected, Waky just dictates.</p>
         <h3>The floating pill</h3>
-        <p>Hold <kbd>Shift</kbd> and click the pill to open Settings. Hold <kbd>Alt</kbd> and drag to move it. By default it returns to the same spot on screen every time Waky starts; choose "Remember where I drag it" in Settings > Floating Bar to keep a custom spot. If it ever goes missing, right-click the tray icon and choose <b>Reset Floating Bar Position</b>.</p>
+        <p>Hold <kbd>Shift</kbd> and click the pill to open Settings. Hold <kbd>Alt</kbd> and drag to move it. By default it returns to the same spot on screen every time Waky starts; choose "Remember where I drag it" in Settings &gt; Floating Bar to keep a custom spot.</p>
+        <p>Under <b>Settings &gt; Floating Bar &gt; Visibility</b> (or the tray menu) choose <b>Always</b>, <b>While dictating</b> (the pill fades in when you hold the hotkey and fades out afterwards) or <b>Hidden</b>. If it ever goes missing, right-click the tray icon, open <b>Floating Bar</b> and choose <b>Reset Position</b>.</p>
+
+        <h2 id="updates">Updates</h2>
+        <p>Waky checks GitHub about once a day. When a new version exists, the tray icon shows a notice and <b>Settings &gt; Updates</b> offers <b>Download and install</b>. The download is verified against the published SHA-256, installed in place, and Waky restarts. Your settings, key and memory are kept. Turn automatic checks off in the same tab; <b>Check for updates</b> always works.</p>
 
         <h2 id="modes">5. Custom modes</h2>
         <p>Open <b>Settings &gt; Commands</b>.</p>
@@ -146,7 +154,7 @@
     </div>
   </footer>
 
-  <script src="site-config.js?v=3"></script>
+  <script src="site-config.js?v=4"></script>
   <script src="guide.js?v=3"></script>
 </body>
 </html>
