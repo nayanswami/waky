@@ -46,6 +46,7 @@ DEFAULT_SETTINGS: dict[str, Any] = {
         "toggle_recording": "<f9>",
         "cancel": "<esc>",
         "paste_last": "",
+        "double_tap_lock": True,
         "alternatives": ["<ctrl>+<cmd>", "<ctrl>+<shift>+<space>"],
     },
     "audio": {
@@ -121,6 +122,7 @@ DEFAULT_SETTINGS: dict[str, Any] = {
         "command_extend_enabled": True,
     },
     "updates": {"auto_check": True, "last_check": 0, "skipped": ""},
+    "app_profiles": {"enabled": True, "items": []},
     "privacy": {
         "save_recordings": False,
         "cloud_cleanup": False,

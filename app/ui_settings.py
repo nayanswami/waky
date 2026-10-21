@@ -23,6 +23,7 @@ from PySide6.QtWidgets import (
     QListWidgetItem,
     QMessageBox,
     QPlainTextEdit,
+    QMenu,
     QProgressBar,
     QPushButton,
     QRadioButton,
@@ -48,6 +49,7 @@ from .local_memory import (
     summarize_project_memory,
 )
 from . import __version__, model_manager, pill_styles
+from . import app_profiles
 from .hotkeys import pretty_combo
 from .ios_widgets import IOSSwitch as QCheckBox
 from .ios_widgets import FlowLayout, Group, PageStack, PillPreview, Segmented, StyleCard, glyph_pixmap, section_label
@@ -86,7 +88,7 @@ class SettingsWindow(QDialog):
     # ---------- shell: sidebar, pages, footer ----------
     NAV = (
         ("General", "Hotkeys", "Audio", "Floating Bar"),
-        ("Transcription", "Output", "Commands", "Memory", "Vocabulary", "Snippets"),
+        ("Transcription", "Output", "Commands", "App Profiles", "Memory", "Vocabulary", "Snippets"),
         ("Privacy", "Updates", "Help", "Diagnostics"),
     )
 
@@ -161,6 +163,7 @@ class SettingsWindow(QDialog):
         self._transcription_tab()
         self._output_tab()
         self._commands_tab()
+        self._profiles_tab()
         self._memory_tab()
         self._vocabulary_tab()
         self._snippets_tab()
@@ -191,7 +194,7 @@ class SettingsWindow(QDialog):
     SECTION_STYLE = {
         "General": ("", "#8E8E93"), "Hotkeys": ("", "#FF9500"), "Audio": ("", "#FF3B30"),
         "Floating Bar": ("", "#2E62FF"), "Transcription": ("", "#5E5CE6"), "Output": ("", "#34C759"),
-        "Commands": ("", "#AF52DE"), "Memory": ("", "#32ADE6"), "Vocabulary": ("", "#FF2D55"),
+        "Commands": ("", "#AF52DE"), "App Profiles": ("", "#FF6482"), "Memory": ("", "#32ADE6"), "Vocabulary": ("", "#FF2D55"),
         "Snippets": ("", "#FFAA00"), "Privacy": ("", "#30B0C7"), "Updates": ("", "#0A84FF"),
         "Help": ("", "#5AC8FA"), "Diagnostics": ("", "#636366"),
     }
@@ -222,6 +225,7 @@ class SettingsWindow(QDialog):
             "Transcription": "Groq or on-device speech to text, model quality and language.",
             "Output": "How dictated text is cleaned, pasted and protected from accidental sending.",
             "Commands": "Voice modes, your own instructions and trigger phrases.",
+            "App Profiles": "Let the app you are typing into decide the style: casual in chat, polished in email, literal in code.",
             "Memory": "Local memory that helps Waky spell and phrase things your way.",
             "Vocabulary": "Names and terms Waky should always get right.",
             "Snippets": "Short phrases that expand into longer text.",
@@ -516,6 +520,10 @@ class SettingsWindow(QDialog):
         keys.addRow("Hands-free toggle", self.toggle_hotkey, hint="Press once to start, again to stop.")
         keys.addRow("Cancel", self.cancel_hotkey)
         self._block(lay, "Dictation", keys)
+        self.double_tap_lock = QCheckBox("Double-tap to lock hands-free")
+        lock = Group()
+        lock.addRow(self.double_tap_lock, hint="Tap your push-to-talk key twice quickly and Waky keeps listening after you let go. Press it once more to stop.")
+        self._block(lay, "Hands-free", lock)
         extra = Group()
         paste_host = QWidget()
         prow = QHBoxLayout(paste_host)
@@ -737,6 +745,144 @@ class SettingsWindow(QDialog):
         modes.addRow(command_buttons)
         self._block(lay, "Custom modes", modes)
         self._finish(page, lay, "Commands")
+
+    # ---------- App profiles ----------
+    def _profile_items(self) -> list[dict]:
+        return self.config_manager.settings.setdefault("app_profiles", {"enabled": True, "items": []}).setdefault("items", [])
+
+    def _profiles_tab(self) -> None:
+        page, lay = self._page()
+        self.profiles_enabled = QCheckBox("Use app profiles")
+        top = Group()
+        top.addRow(self.profiles_enabled, hint="Waky looks at which app has focus when you start talking and adds that profile's instruction.")
+        self._block(lay, None, top)
+
+        self.profile_list = QListWidget()
+        self.profile_list.setFixedHeight(110)
+        self.profile_name = QLineEdit()
+        self.profile_match = QLineEdit()
+        self.profile_match.setPlaceholderText("slack.exe, discord.exe, Gmail")
+        self.profile_instruction = QPlainTextEdit()
+        self.profile_instruction.setFixedHeight(84)
+        self.profile_instruction.setPlaceholderText("e.g. 'Keep it short and casual, like a chat message.'")
+        self.profile_light = QCheckBox("Light cleanup only (no AI rewriting)")
+        self.profile_enabled = QCheckBox("Enabled")
+        self.profile_status = QLabel("")
+        self.profile_status.setObjectName("caption")
+        self.profile_status.setWordWrap(True)
+
+        quick = Group()
+        quick_buttons = FlowLayout(spacing=8)
+        for preset in app_profiles.PRESETS:
+            b = QPushButton("+ " + preset["name"])
+            b.clicked.connect(lambda _c=False, p=preset: self._add_profile(dict(p)))
+            quick_buttons.addWidget(b)
+        detect_btn = QPushButton("Add the app I switch to")
+        self.profile_detect_btn = detect_btn
+        detect_btn.clicked.connect(self._detect_app_profile)
+        quick_buttons.addWidget(detect_btn)
+        quick.addRow(quick_buttons)
+        self._block(lay, "Add a profile", quick, "Presets cover the common apps. The last button picks up whichever app you switch to within four seconds.")
+
+        box = Group()
+        box.addRow("Your apps", self.profile_list)
+        box.addRow("Name", self.profile_name)
+        self.profile_match.setFixedWidth(300)
+        box.addRow("Matches", self.profile_match, hint="Comma separated app names or window-title text.")
+        box.addRow("Instruction", self.profile_instruction, hint="How Waky should write in these apps.")
+        box.addRow(self.profile_light, hint="Good for code and terminals: fillers are removed, wording is left alone.")
+        box.addRow(self.profile_enabled)
+        save_btn = QPushButton("Save profile")
+        save_btn.setObjectName("primary")
+        add_btn = QPushButton("New blank")
+        delete_btn = QPushButton("Delete")
+        delete_btn.setObjectName("danger")
+        save_btn.clicked.connect(self._save_profile)
+        add_btn.clicked.connect(lambda: self._add_profile({"name": "New profile", "match": "", "instruction": "", "light": False}))
+        delete_btn.clicked.connect(self._delete_profile)
+        buttons = FlowLayout(spacing=8)
+        for b in (save_btn, add_btn, delete_btn):
+            buttons.addWidget(b)
+        box.addRow(buttons)
+        box.addRow(self.profile_status)
+        self.profile_list.currentRowChanged.connect(self._load_profile)
+        self._block(lay, "Profiles", box)
+        self._finish(page, lay, "App Profiles")
+
+    def _reload_profile_list(self) -> None:
+        row = self.profile_list.currentRow()
+        self.profile_list.blockSignals(True)
+        self.profile_list.clear()
+        for profile in self._profile_items():
+            self.profile_list.addItem(("" if profile.get("enabled", True) else "(off) ") + str(profile.get("name", "Profile")))
+        self.profile_list.blockSignals(False)
+        if self.profile_list.count():
+            self.profile_list.setCurrentRow(min(max(row, 0), self.profile_list.count() - 1))
+            self._load_profile(self.profile_list.currentRow())
+        else:
+            self._load_profile(-1)
+
+    def _load_profile(self, row: int) -> None:
+        items = self._profile_items()
+        valid = 0 <= row < len(items)
+        profile = items[row] if valid else {}
+        self.profile_name.setText(str(profile.get("name", "")))
+        self.profile_match.setText(str(profile.get("match", "")))
+        self.profile_instruction.setPlainText(str(profile.get("instruction", "")))
+        self.profile_light.setChecked(bool(profile.get("light", False)))
+        self.profile_enabled.setChecked(bool(profile.get("enabled", True)))
+
+    def _add_profile(self, profile: dict) -> None:
+        profile.setdefault("enabled", True)
+        self._profile_items().append(profile)
+        self.config_manager.save_settings()
+        self._reload_profile_list()
+        self.profile_list.setCurrentRow(self.profile_list.count() - 1)
+        self.profile_status.setText(f"Added '{profile.get('name', 'profile')}'. Adjust it and press Save profile.")
+
+    def _save_profile(self) -> None:
+        row = self.profile_list.currentRow()
+        items = self._profile_items()
+        if not 0 <= row < len(items):
+            return
+        items[row].update({
+            "name": self.profile_name.text().strip() or "Profile",
+            "match": self.profile_match.text().strip(),
+            "instruction": self.profile_instruction.toPlainText().strip(),
+            "light": self.profile_light.isChecked(),
+            "enabled": self.profile_enabled.isChecked(),
+        })
+        self.config_manager.save_settings()
+        self._reload_profile_list()
+        self.profile_status.setText("Saved.")
+
+    def _delete_profile(self) -> None:
+        row = self.profile_list.currentRow()
+        items = self._profile_items()
+        if 0 <= row < len(items):
+            del items[row]
+            self.config_manager.save_settings()
+            self._reload_profile_list()
+
+    def _detect_app_profile(self) -> None:
+        self._detect_left = 4
+        self.profile_detect_btn.setEnabled(False)
+        self._detect_tick()
+
+    def _detect_tick(self) -> None:
+        if self._detect_left > 0:
+            self.profile_detect_btn.setText(f"Switch to the app now... {self._detect_left}")
+            self._detect_left -= 1
+            QTimer.singleShot(1000, self._detect_tick)
+            return
+        self.profile_detect_btn.setText("Add the app I switch to")
+        self.profile_detect_btn.setEnabled(True)
+        app = app_profiles.foreground_app()
+        if not app:
+            self.profile_status.setText("Waky could not see another app. Click Add again, then switch to the app within four seconds.")
+            return
+        name = app.exe[:-4] if app.exe.endswith(".exe") else app.exe
+        self._add_profile({"name": name.title(), "match": app.exe, "instruction": "", "light": False})
 
     # ---------- Memory ----------
     def _memory_tab(self) -> None:
@@ -1031,6 +1177,7 @@ class SettingsWindow(QDialog):
             ("Move the pill", "Hold Alt and drag it."),
             ("Hide the pill", "Settings > Floating Bar > Visibility, or the tray menu."),
             ("Paste again", "Tray menu > Paste Last Result."),
+            ("Hands-free", "Double-tap the push-to-talk key to keep listening; press it once to stop."),
         ):
             label = QLabel(text)
             label.setObjectName("caption")
@@ -1112,6 +1259,9 @@ class SettingsWindow(QDialog):
         self.toggle_hotkey.setText(s["hotkeys"]["toggle_recording"])
         self.cancel_hotkey.setText(s["hotkeys"]["cancel"])
         self.paste_last_hotkey.setText(s["hotkeys"].get("paste_last", ""))
+        self.double_tap_lock.setChecked(s["hotkeys"].get("double_tap_lock", True))
+        self.profiles_enabled.setChecked(s.get("app_profiles", {}).get("enabled", True))
+        self._reload_profile_list()
         self.update_auto.setChecked(s.get("updates", {}).get("auto_check", True))
         self._refresh_help()
         self.trim_silence.setChecked(s["audio"]["silence_trimming"])
@@ -1189,8 +1339,10 @@ class SettingsWindow(QDialog):
                 "toggle_recording": self.toggle_hotkey.text().strip() or "<f9>",
                 "cancel": self.cancel_hotkey.text().strip() or "<esc>",
                 "paste_last": self.paste_last_hotkey.text().strip(),
+                "double_tap_lock": self.double_tap_lock.isChecked(),
             }
         )
+        s.setdefault("app_profiles", {"items": []})["enabled"] = self.profiles_enabled.isChecked()
         s.setdefault("updates", {})["auto_check"] = self.update_auto.isChecked()
         s["audio"]["microphone"] = self.microphone.currentData()
         s["audio"]["silence_trimming"] = self.trim_silence.isChecked()

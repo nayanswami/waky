@@ -25,7 +25,7 @@ from PySide6.QtWidgets import QApplication
 from app.audio_recorder import AudioRecorder, AudioResult
 from app.clipboard_inserter import ClipboardInserter
 from app.command_processor import process_text as process_voice_commands
-from app import http_pool, ios_theme, llm_engine, sounds, updater as updater_mod
+from app import app_profiles, http_pool, ios_theme, llm_engine, sounds, updater as updater_mod
 from app.config_manager import ConfigManager
 from app.diagnostics import DiagnosticsService
 from app.hotkeys import HotkeyManager
@@ -59,6 +59,8 @@ class AppSignals(QObject):
     toggle_requested = Signal()
     cancel_hotkey_requested = Signal()
     paste_last_requested = Signal()
+    push_tap = Signal()
+    lock_changed = Signal(bool)
 
 
 class AppState(str, Enum):
@@ -107,6 +109,7 @@ class WakyApp(QObject):
         self.cancel_requested = threading.Event()
         self.toggle_recording = False
         self.last_result = ""   # kept in memory only, never written to disk
+        self.current_profile: dict | None = None
         self.cleaned_up = False
         self.state = AppState.IDLE
         self._state_lock = threading.RLock()
@@ -134,6 +137,8 @@ class WakyApp(QObject):
         self.update_action = self.tray.add_action("Update available", self.open_updates, visible=False)
         self.signals.status.connect(self.bar.set_status)
         self.signals.paste_last_requested.connect(self.paste_last_result)
+        self.signals.push_tap.connect(self._handle_push_tap)
+        self.signals.lock_changed.connect(self._handle_lock_changed)
         self.signals.error.connect(self._show_error)
         self.signals.recording_finished.connect(self._process_audio)
         self.signals.diagnostics_message.connect(self._append_diagnostics)
@@ -157,6 +162,8 @@ class WakyApp(QObject):
             self.cancel,
             self._hotkey_error,
             on_paste_last=self.signals.paste_last_requested.emit,
+            on_push_tap=self.signals.push_tap.emit,
+            on_lock_changed=self.signals.lock_changed.emit,
         )
         self.hotkeys.start()
         self._mic_signature = (self.config.get("audio.keep_ready", True), self.config.get("audio.microphone"))
@@ -380,6 +387,7 @@ class WakyApp(QObject):
             self.selected_previous_clipboard = ""
             self.selected_had_clipboard = False
         self._transition(AppState.IDLE)
+        self.hotkeys.clear_lock()
         self._log_info("[RESET] reason=%s", reason)
         self.signals.status.emit("Idle" if not self.is_paused() else "Paused")
 
@@ -431,6 +439,19 @@ class WakyApp(QObject):
             self.signals.push_released.emit()
             return
         self._handle_push_released()
+
+    @Slot()
+    def _handle_push_tap(self) -> None:
+        """A very short press is a tap (used for double-tap lock), not dictation: drop it quietly instead of flashing 'too short'."""
+        if self.state == AppState.LISTENING and not self.toggle_recording:
+            self._log_info("[SMART_HOTKEY] tap ignored")
+            self.reset_pipeline("tap")
+
+    @Slot(bool)
+    def _handle_lock_changed(self, on: bool) -> None:
+        self._log_info("[SMART_HOTKEY] hands-free lock=%s", on)
+        if on and self.config.get("general.sound_effects", False):
+            sounds.play("lock")
 
     @Slot()
     def _handle_push_released(self) -> None:
@@ -512,6 +533,9 @@ class WakyApp(QObject):
                 return False
             try:
                 self.logger.info("Recording start requested")
+                self.current_profile = app_profiles.match_profile(self.config.settings, app_profiles.foreground_app())
+                if self.current_profile:
+                    self.logger.info("[PROFILE] using %s", self.current_profile.get("name"))
                 self.cancel_requested.clear()
                 self._next_pipeline_id()
                 self.recorder.start()
@@ -583,6 +607,7 @@ class WakyApp(QObject):
                 return {"pipeline_id": pipeline_id, "status": "empty_transcript"}
 
             clean_started = time.perf_counter()
+            run_settings = app_profiles.apply_profile(self.config.settings, self.current_profile)
             if self.current_input_mode == "smart_pending":
                 self._resolve_smart_input_mode()
             if self.current_input_mode == "selected_rewrite" and self.selected_text_context:
@@ -593,7 +618,7 @@ class WakyApp(QObject):
                 final_text = rewrite_selected_text(
                     self.selected_text_context,
                     transcript,
-                    self.config.settings,
+                    run_settings,
                     self.config.custom_commands,
                 ).strip()
                 self.logger.info("[SELECTED_REWRITE] replacement_length=%s", len(final_text))
@@ -601,7 +626,7 @@ class WakyApp(QObject):
                 self.logger.info("[COMMAND] mode=normal_dictation")
                 final_text = process_voice_commands(
                     transcript,
-                    self.config.settings,
+                    run_settings,
                     custom_commands=self.config.custom_commands,
                 ).strip()
             self.logger.info("Cleanup finished seconds=%.3f final_chars=%s", time.perf_counter() - clean_started, len(final_text))

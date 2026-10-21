@@ -81,7 +81,7 @@ for appearance in ("light", "dark"):
     win.move(-6000, 0)
     win.show()
     settle(win, 600)
-    for title in ("General", "Hotkeys", "Audio", "Floating Bar", "Commands", "Transcription", "Updates", "Help"):
+    for title in ("General", "Hotkeys", "Audio", "Floating Bar", "Commands", "Transcription", "Updates", "Help", "App Profiles"):
         idx = win.tabs.index_of(title)
         win.tabs.setCurrentIndex(idx)
         settle(win, 200)

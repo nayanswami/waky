@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 import sys
 import threading
+import time
 from typing import Callable
 
 from pynput import keyboard, mouse
@@ -12,6 +13,8 @@ from pynput import keyboard, mouse
 CAPTURING = threading.Event()
 
 MODIFIER_ORDER = ("ctrl", "alt", "shift", "win")
+TAP_MAX = 0.30      # a press shorter than this is a tap, not dictation
+DOUBLE_GAP = 0.50   # two taps this close together lock recording on (hands-free)
 
 
 def mouse_token(button) -> str | None:
@@ -89,6 +92,8 @@ class HotkeyManager:
         on_cancel: Callable[[], None],
         on_error: Callable[[str], None],
         on_paste_last: Callable[[], None] | None = None,
+        on_push_tap: Callable[[], None] | None = None,
+        on_lock_changed: Callable[[bool], None] | None = None,
     ) -> None:
         self.settings = settings
         self.logger = logger
@@ -99,6 +104,13 @@ class HotkeyManager:
         self.on_error = on_error
         self.on_paste_last = on_paste_last
         self.paste_last_down = False
+        self.on_push_tap = on_push_tap
+        self.on_lock_changed = on_lock_changed
+        self.locked = False         # hands-free lock: recording continues after the keys are released
+        self.swallow = False        # ignore key repeat of the press that just stopped a locked recording
+        self.press_at = 0.0
+        self.last_tap = 0.0
+        self.second_press = False
         self.listener: keyboard.Listener | None = None
         self.mouse_listener: mouse.Listener | None = None
         self.current_keys: set[str] = set()
@@ -180,6 +192,7 @@ class HotkeyManager:
             self.current_keys.add(token)
             if self._combo_matches("cancel"):
                 self.logger.info("Cancel hotkey pressed")
+                self._drop_lock()
                 self.on_cancel()
                 return
             if self.on_paste_last and self._combo_matches("paste_last"):
@@ -191,12 +204,30 @@ class HotkeyManager:
                 return
             if self._combo_matches("toggle_recording"):
                 self._cancel_pending_push()
+                self._drop_lock()
                 if not self.toggle_combo_was_down:
                     self.toggle_combo_was_down = True
                     self.logger.info("Toggle hotkey pressed")
                     self.on_toggle()
                 return
-            if self._push_combo_matches() and not self.push_active:
+            if not self._push_combo_matches():
+                return
+            if self.locked:   # pressing the dictation key again ends a hands-free recording
+                if not self.swallow:
+                    self.swallow = True
+                    self.locked = False
+                    self.push_active = False
+                    self.logger.info("Hands-free lock released; stopping")
+                    self._notify_lock(False)
+                    self.on_push_stop()
+                return
+            if self.swallow:
+                return
+            if not self.push_active:
+                if not self.press_at:
+                    now = time.monotonic()
+                    self.press_at = now
+                    self.second_press = (now - self.last_tap) < DOUBLE_GAP
                 self.logger.info("Push-to-talk key pressed")
                 self._schedule_push_start()
 
@@ -210,16 +241,69 @@ class HotkeyManager:
         with self.lock:
             was_push_active = self.push_active
             self.current_keys.discard(token)
-            if not self._push_combo_matches():
+            holding = self._push_combo_matches()
+            if not holding:
                 self._cancel_pending_push()
             if not self._combo_matches("toggle_recording"):
                 self.toggle_combo_was_down = False
             if not self._combo_matches("paste_last"):
                 self.paste_last_down = False
-            if was_push_active and not self._push_combo_matches():
+            if holding:
+                return
+            self.swallow = False
+            pressed_at, self.press_at = self.press_at, 0.0
+            if self.locked:
+                return   # keys let go while locked: keep recording
+            now = time.monotonic()
+            tap = bool(pressed_at) and (now - pressed_at) < TAP_MAX
+            double_tap = self.settings.get("hotkeys", {}).get("double_tap_lock", True)
+            if tap and double_tap and self.second_press:
+                if not was_push_active:   # second tap was too quick for the start timer: start now
+                    self.push_active = True
+                    try:
+                        accepted = self.on_push_start()
+                    except Exception:
+                        self.logger.exception("Push-to-talk start callback failed")
+                        accepted = False
+                    if accepted is False:
+                        self.push_active = False
+                        return
+                self.locked = True
+                self.last_tap = 0.0
+                self.logger.info("Double tap: hands-free lock on")
+                self._notify_lock(True)
+                return
+            if tap:
+                self.last_tap = now
+                if was_push_active:
+                    self.push_active = False
+                    (self.on_push_tap or self.on_push_stop)()
+                return
+            if was_push_active:
                 self.push_active = False
                 self.logger.info("Push-to-talk key released")
                 self.on_push_stop()
+
+    def _notify_lock(self, on: bool) -> None:
+        if self.on_lock_changed:
+            try:
+                self.on_lock_changed(on)
+            except Exception:
+                self.logger.exception("Lock callback failed")
+
+    def _drop_lock(self) -> None:
+        if self.locked:
+            self.locked = False
+            self.push_active = False
+            self._notify_lock(False)
+
+    def clear_lock(self) -> None:
+        """Called when the pipeline is reset from elsewhere, so a stale hands-free lock cannot swallow the next key press."""
+        with self.lock:
+            if self.locked:
+                self.locked = False
+                self.push_active = False
+                self.swallow = False
 
     def _schedule_push_start(self) -> None:
         if self.pending_push_timer or self.push_active:

@@ -157,6 +157,89 @@ assert len(events) == n
 for tok in ("ctrl", "alt", "v"):
     mgr._release(tok)
 
+# ---------- tap detection + double-tap hands-free lock ----------
+ev = []
+lock_settings = {"hotkeys": {"push_to_talk": "<f8>", "push_to_talk_backup": "", "toggle_recording": "<f9>", "cancel": "<esc>", "double_tap_lock": True}}
+lm = hotkeys.HotkeyManager(
+    lock_settings, logging.getLogger("t"), lambda: ev.append("start") or True, lambda: ev.append("stop"),
+    lambda: ev.append("toggle"), lambda: ev.append("cancel"), lambda m: ev.append("err"),
+    on_push_tap=lambda: ev.append("tap"), on_lock_changed=lambda on: ev.append("lock" if on else "unlock"),
+)
+# normal hold still works: start, then stop on release
+lm._press("f8"); time.sleep(0.5); lm._release("f8")
+assert ev == ["start", "stop"], ev
+# one quick tap = silent tap (no 'stop'), not dictation
+ev.clear(); time.sleep(0.6)
+lm._press("f8"); time.sleep(0.12); lm._release("f8")
+assert ev == ["start", "tap"], ev
+# second quick tap within the gap locks recording on and keeps it running
+ev.clear()
+time.sleep(0.15)
+lm._press("f8"); time.sleep(0.12); lm._release("f8")
+assert ev == ["start", "lock"] and lm.locked, ev
+# releasing other keys while locked changes nothing
+lm._press("shift"); lm._release("shift")
+assert "stop" not in ev
+# pressing the key again stops; key repeat must not restart it; release is a no-op
+ev.clear()
+lm._press("f8"); lm._press("f8"); lm._release("f8")
+assert ev == ["unlock", "stop"] and not lm.locked, ev
+# a tap followed much later by another tap does not lock
+ev.clear(); time.sleep(0.7)
+lm._press("f8"); time.sleep(0.1); lm._release("f8")
+time.sleep(0.8)
+lm._press("f8"); time.sleep(0.1); lm._release("f8")
+assert "lock" not in ev, ev
+# a tap then a long hold is normal dictation
+ev.clear(); time.sleep(0.7)
+lm._press("f8"); time.sleep(0.1); lm._release("f8")
+time.sleep(0.1)
+lm._press("f8"); time.sleep(0.6); lm._release("f8")
+assert ev[-1] == "stop" and "lock" not in ev, ev
+# feature can be switched off
+lock_settings["hotkeys"]["double_tap_lock"] = False
+ev.clear(); time.sleep(0.7)
+for _ in range(2):
+    lm._press("f8"); time.sleep(0.1); lm._release("f8"); time.sleep(0.1)
+assert "lock" not in ev and not lm.locked, ev
+lock_settings["hotkeys"]["double_tap_lock"] = True
+# a stale lock is dropped when the pipeline resets, and Esc also drops it
+ev.clear(); time.sleep(0.7)
+lm._press("f8"); time.sleep(0.1); lm._release("f8"); time.sleep(0.1)
+lm._press("f8"); time.sleep(0.1); lm._release("f8")
+assert lm.locked
+lm.clear_lock()
+assert not lm.locked
+
+# ---------- per-app profiles ----------
+from app import app_profiles
+
+settings_p = {
+    "command_processing": {"custom_instructions": "I am Nayan."},
+    "app_profiles": {"enabled": True, "items": [
+        {"name": "Chat", "match": "slack.exe, discord", "instruction": "Be casual.", "light": False, "enabled": True},
+        {"name": "Mail", "match": "Gmail", "instruction": "Be polite.", "enabled": True},
+        {"name": "Code", "match": "code.exe", "instruction": "Keep identifiers.", "light": True, "enabled": True},
+        {"name": "Off", "match": "notepad.exe", "instruction": "x", "enabled": False},
+    ]},
+}
+slack = app_profiles.AppInfo("slack.exe", "general - Slack")
+assert app_profiles.match_profile(settings_p, slack)["name"] == "Chat"
+assert app_profiles.match_profile(settings_p, app_profiles.AppInfo("chrome.exe", "Inbox (3) - Gmail - Brave"))["name"] == "Mail"
+assert app_profiles.match_profile(settings_p, app_profiles.AppInfo("notepad.exe", "a.txt")) is None, "disabled profiles are ignored"
+assert app_profiles.match_profile(settings_p, app_profiles.AppInfo("calc.exe", "Calculator")) is None
+assert app_profiles.match_profile(settings_p, None) is None
+settings_p["app_profiles"]["enabled"] = False
+assert app_profiles.match_profile(settings_p, slack) is None
+settings_p["app_profiles"]["enabled"] = True
+run = app_profiles.apply_profile(settings_p, settings_p["app_profiles"]["items"][0])
+assert "I am Nayan." in run["command_processing"]["custom_instructions"] and "Be casual." in run["command_processing"]["custom_instructions"]
+assert settings_p["command_processing"]["custom_instructions"] == "I am Nayan.", "stored settings must not change"
+light = app_profiles.apply_profile(settings_p, settings_p["app_profiles"]["items"][2])
+assert light["command_processing"]["command_rewrite_engine"] == "rule_based_only"
+assert app_profiles.apply_profile(settings_p, None) is settings_p
+assert app_profiles.foreground_app() is None or app_profiles.foreground_app().exe  # never raises
+
 # ---------- pill visibility modes ----------
 from app.ui_floating_bar import FloatingBar
 
