@@ -19,8 +19,9 @@ class HotkeyEdit(QLineEdit):
         self.setAlignment(Qt.AlignCenter)
         self.setCursor(Qt.PointingHandCursor)
         self.setReadOnly(True)
-        self.setPlaceholderText("Click, then press keys")
+        self.setPlaceholderText("Click to record")
         self._listener = None
+        self._mouse_listener = None
         self._previous = ""
         self._timeout = QTimer(self)
         self._timeout.setSingleShot(True)
@@ -31,7 +32,10 @@ class HotkeyEdit(QLineEdit):
         return self._raw
 
     def setText(self, value: str) -> None:  # shown prettily, stored raw
-        if value.startswith("<") or "+" in value:
+        if not value:
+            self._raw = ""
+            super().setText("")
+        elif value.startswith("<") or "+" in value:
             self._raw = value
             super().setText(hotkeys.pretty_combo(value))
         else:  # transient prompts like "Press your keys..."
@@ -68,6 +72,15 @@ class HotkeyEdit(QLineEdit):
 
         self._listener = keyboard.Listener(on_press=on_press, on_release=on_release)
         self._listener.start()
+        from pynput import mouse
+
+        def on_click(_x, _y, button, down) -> None:
+            token = hotkeys.mouse_token(button)
+            if token:
+                (on_press if down else on_release)(token)
+
+        self._mouse_listener = mouse.Listener(on_click=on_click)
+        self._mouse_listener.start()
         self._timeout.start(10_000)
 
     def _on_live(self, text: str, finished: bool) -> None:
@@ -79,7 +92,7 @@ class HotkeyEdit(QLineEdit):
             self.setText(text)
         else:
             self.setText(self._previous)
-            self.setToolTip("Use a modifier (Ctrl, Alt, Shift, Win) or a function key like F8.")
+            self.setToolTip("Use a modifier (Ctrl, Alt, Shift, Win), a function key like F8, or a middle/side mouse button.")
 
     def _cancel(self) -> None:
         self._stop()
@@ -88,9 +101,11 @@ class HotkeyEdit(QLineEdit):
     def _stop(self) -> None:
         self._timeout.stop()
         hotkeys.CAPTURING.clear()
-        if self._listener is not None:
-            try:
-                self._listener.stop()
-            except Exception:
-                pass
-            self._listener = None
+        for name in ("_listener", "_mouse_listener"):
+            listener = getattr(self, name)
+            if listener is not None:
+                try:
+                    listener.stop()
+                except Exception:
+                    pass
+                setattr(self, name, None)

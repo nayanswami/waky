@@ -4,8 +4,8 @@ import csv
 import os
 import threading
 
-from PySide6.QtCore import QRectF, QSize, Qt, Signal
-from PySide6.QtGui import QColor, QFont, QFontDatabase, QIcon, QPainter, QPainterPath, QPixmap
+from PySide6.QtCore import QSize, Qt, QTimer, Signal
+from PySide6.QtGui import QColor, QIcon, QPixmap
 from PySide6.QtWidgets import (
     QColorDialog,
     QComboBox,
@@ -23,6 +23,7 @@ from PySide6.QtWidgets import (
     QListWidgetItem,
     QMessageBox,
     QPlainTextEdit,
+    QProgressBar,
     QPushButton,
     QRadioButton,
     QSlider,
@@ -47,8 +48,9 @@ from .local_memory import (
     summarize_project_memory,
 )
 from . import __version__, model_manager, pill_styles
+from .hotkeys import pretty_combo
 from .ios_widgets import IOSSwitch as QCheckBox
-from .ios_widgets import FlowLayout, PageStack, PillPreview, StyleCard
+from .ios_widgets import FlowLayout, Group, PageStack, PillPreview, Segmented, StyleCard, glyph_pixmap, section_label
 from .startup_manager import StartupManager
 from .ui_widgets import HotkeyEdit
 from .utils import LANGUAGE_LABELS, LOG_DIR, MODE_LABELS, asset_path
@@ -64,6 +66,7 @@ class SettingsWindow(QDialog):
     model_download_finished = Signal(str)
     pill_style_changed = Signal(str)
     appearance_changed = Signal(str)
+    welcome_requested = Signal()
 
     def __init__(self, config_manager, recorder: AudioRecorder, transcriber, diagnostics, logger, parent=None) -> None:
         super().__init__(parent)
@@ -72,10 +75,20 @@ class SettingsWindow(QDialog):
         self.transcriber = transcriber
         self.diagnostics = diagnostics
         self.logger = logger
+        self.updater = None
+        self._updater_connected = False
         self.setWindowTitle("Waky Settings")
-        self.setMinimumSize(1040, 720)
+        self.setMinimumSize(900, 640)
+        self.resize(980, 720)
         self._build_ui()
         self.load_values()
+
+    # ---------- shell: sidebar, pages, footer ----------
+    NAV = (
+        ("General", "Hotkeys", "Audio", "Floating Bar"),
+        ("Transcription", "Output", "Commands", "Memory", "Vocabulary", "Snippets"),
+        ("Privacy", "Updates", "Help", "Diagnostics"),
+    )
 
     def _build_ui(self) -> None:
         outer = QHBoxLayout(self)
@@ -84,32 +97,34 @@ class SettingsWindow(QDialog):
 
         side = QFrame()
         side.setObjectName("sideFrame")
-        side.setFixedWidth(236)
+        side.setFixedWidth(212)
         sl = QVBoxLayout(side)
-        sl.setContentsMargins(14, 22, 14, 14)
-        sl.setSpacing(10)
+        sl.setContentsMargins(12, 18, 12, 12)
+        sl.setSpacing(8)
         brand = QHBoxLayout()
-        brand.setSpacing(10)
+        brand.setContentsMargins(6, 0, 0, 0)
+        brand.setSpacing(9)
         logo = QLabel()
-        logo.setFixedSize(36, 36)
+        logo.setFixedSize(26, 26)
         pix = QPixmap(str(asset_path("waky-icon.png")))
         if not pix.isNull():
-            logo.setPixmap(pix.scaled(36, 36, Qt.KeepAspectRatio, Qt.SmoothTransformation))
+            logo.setPixmap(pix.scaled(26, 26, Qt.KeepAspectRatio, Qt.SmoothTransformation))
         name = QLabel("Waky")
         name.setObjectName("settingsTitle")
         brand.addWidget(logo)
         brand.addWidget(name)
         brand.addStretch()
         sl.addLayout(brand)
-        sl.addSpacing(8)
+        sl.addSpacing(6)
         self.sidebar = QListWidget()
         self.sidebar.setObjectName("sidebar")
-        self.sidebar.setIconSize(QSize(28, 28))
+        self.sidebar.setIconSize(QSize(22, 22))
         self.sidebar.setFocusPolicy(Qt.NoFocus)
         self.sidebar.setVerticalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
         sl.addWidget(self.sidebar, 1)
-        version = QLabel(f"Version {__version__}")
+        version = QLabel(f"Waky {__version__}")
         version.setObjectName("caption")
+        version.setContentsMargins(6, 0, 0, 0)
         sl.addWidget(version)
 
         right = QVBoxLayout()
@@ -121,13 +136,16 @@ class SettingsWindow(QDialog):
         footer = QFrame()
         footer.setObjectName("footer")
         fl = QHBoxLayout(footer)
-        fl.setContentsMargins(28, 12, 28, 14)
+        fl.setContentsMargins(24, 10, 24, 12)
         fl.setSpacing(10)
+        self.saved_note = QLabel("")
+        self.saved_note.setObjectName("ok")
+        fl.addWidget(self.saved_note)
         fl.addStretch()
         close = QPushButton("Close")
-        close.setObjectName("plain")
         save = QPushButton("Save")
         save.setObjectName("primary")
+        save.setDefault(True)
         save.clicked.connect(self.save_values)
         close.clicked.connect(self.accept)
         fl.addWidget(close)
@@ -147,139 +165,162 @@ class SettingsWindow(QDialog):
         self._vocabulary_tab()
         self._snippets_tab()
         self._privacy_tab()
+        self._updates_tab()
         self._help_tab()
         self._diagnostics_tab()
 
-        for title in self.tabs.titles:
-            item = QListWidgetItem(self._section_icon(title), title)
-            item.setSizeHint(QSize(0, 42))
-            self.sidebar.addItem(item)
+        self._nav_page: list[int | None] = []
+        for group in self.NAV:
+            if self._nav_page:
+                spacer = QListWidgetItem()
+                spacer.setFlags(Qt.NoItemFlags)
+                spacer.setSizeHint(QSize(0, 12))
+                self.sidebar.addItem(spacer)
+                self._nav_page.append(None)
+            for title in group:
+                if title not in self.tabs.titles:
+                    continue
+                item = QListWidgetItem(self._section_icon(title), title)
+                item.setSizeHint(QSize(0, 30))
+                self.sidebar.addItem(item)
+                self._nav_page.append(self.tabs.index_of(title))
         self.sidebar.setCurrentRow(0)
         self.sidebar.currentRowChanged.connect(self._on_sidebar)
         self.tabs.currentChanged.connect(self._sync_sidebar)
 
     SECTION_STYLE = {
-        "General": ("", "#8E8E93"), "Hotkeys": ("", "#FF9F0A"), "Audio": ("", "#FF453A"),
-        "Floating Bar": ("", "#2E62FF"), "Transcription": ("", "#5E5CE6"), "Output": ("", "#30D158"),
-        "Commands": ("", "#BF5AF2"), "Memory": ("", "#32ADE6"), "Vocabulary": ("", "#FF375F"),
-        "Snippets": ("", "#FFB000"), "Privacy": ("", "#34C759"), "Help": ("", "#0A84FF"),
-        "Diagnostics": ("", "#8E8E93"),
+        "General": ("", "#8E8E93"), "Hotkeys": ("", "#FF9500"), "Audio": ("", "#FF3B30"),
+        "Floating Bar": ("", "#2E62FF"), "Transcription": ("", "#5E5CE6"), "Output": ("", "#34C759"),
+        "Commands": ("", "#AF52DE"), "Memory": ("", "#32ADE6"), "Vocabulary": ("", "#FF2D55"),
+        "Snippets": ("", "#FFAA00"), "Privacy": ("", "#30B0C7"), "Updates": ("", "#0A84FF"),
+        "Help": ("", "#5AC8FA"), "Diagnostics": ("", "#636366"),
     }
 
     def _section_icon(self, title: str) -> QIcon:
-        glyph, color = self.SECTION_STYLE.get(title, ("", "#8E8E93"))
-        pm = QPixmap(56, 56)
-        pm.fill(Qt.transparent)
-        p = QPainter(pm)
-        p.setRenderHint(QPainter.Antialiasing)
-        path = QPainterPath()
-        path.addRoundedRect(QRectF(2, 2, 52, 52), 14, 14)
-        p.fillPath(path, QColor(color))
-        families = QFontDatabase.families()
-        family = next((f for f in ("Segoe Fluent Icons", "Segoe MDL2 Assets") if f in families), None)
-        if family:
-            font = QFont(family)
-            font.setPixelSize(28)
-            p.setFont(font)
-            p.setPen(QColor("#FFFFFF"))
-            p.drawText(QRectF(0, 0, 56, 56), Qt.AlignCenter, glyph)
-        p.end()
-        pm.setDevicePixelRatio(2.0)
-        return QIcon(pm)
+        glyph, color = self.SECTION_STYLE.get(title, ("", "#8E8E93"))
+        return QIcon(glyph_pixmap(glyph, color, 22))
 
     def _on_sidebar(self, row: int) -> None:
-        if row < 0:
+        if row < 0 or row >= len(self._nav_page) or self._nav_page[row] is None:
             return
-        self.tabs.go(row, 1 if row > self.tabs.currentIndex() else -1)
+        page = self._nav_page[row]
+        self.tabs.go(page, 1 if page > self.tabs.currentIndex() else -1)
 
     def _sync_sidebar(self, index: int) -> None:
+        if index not in self._nav_page:
+            return
         self.sidebar.blockSignals(True)
-        self.sidebar.setCurrentRow(index)
+        self.sidebar.setCurrentRow(self._nav_page.index(index))
         self.sidebar.blockSignals(False)
-
-    def _add_tab(self, title: str) -> tuple[QWidget, QFormLayout]:
-        tab = QWidget()
-        form = QFormLayout(tab)
-        form.setContentsMargins(0, 0, 0, 0)
-        form.setHorizontalSpacing(20)
-        form.setVerticalSpacing(8)
-        form.setLabelAlignment(Qt.AlignLeft | Qt.AlignVCenter)
-        form.setFieldGrowthPolicy(QFormLayout.ExpandingFieldsGrow)
-        self.tabs.addTab(tab, title)
-        return tab, form
 
     def _tab_description(self, title: str) -> str:
         descriptions = {
             "General": "Startup, appearance and everyday behaviour.",
-            "Hotkeys": "Click a box and press the keys you want to use.",
+            "Hotkeys": "Keyboard keys or a mouse button. Click a box and press what you want to use.",
             "Audio": "Pick your microphone and test that Waky can hear you.",
-            "Floating Bar": "Style, colour, size and where the pill appears. Changes show up live.",
-            "Transcription": "Choose Groq or on-device speech to text, model quality and language.",
+            "Floating Bar": "Style, colour, size, position and when the pill shows. Changes apply live.",
+            "Transcription": "Groq or on-device speech to text, model quality and language.",
             "Output": "How dictated text is cleaned, pasted and protected from accidental sending.",
             "Commands": "Voice modes, your own instructions and trigger phrases.",
             "Memory": "Local memory that helps Waky spell and phrase things your way.",
             "Vocabulary": "Names and terms Waky should always get right.",
             "Snippets": "Short phrases that expand into longer text.",
             "Privacy": "Keys, cloud use and how much Waky logs.",
-            "Help": "Tests and shortcuts for when something is not working.",
+            "Updates": "Keep Waky current. Updates install in place and keep your settings.",
+            "Help": "Shortcuts and a tour for when you need a reminder.",
             "Diagnostics": "Technical details for troubleshooting.",
         }
         return descriptions.get(title, "Adjust Waky settings.")
 
+    # ---------- page building helpers ----------
+    def _page(self) -> tuple[QWidget, QVBoxLayout]:
+        page = QWidget()
+        lay = QVBoxLayout(page)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.setSpacing(6)
+        return page, lay
+
+    def _block(self, lay: QVBoxLayout, title: str | None, content: QWidget, note: str | None = None) -> None:
+        if title:
+            if lay.count():
+                lay.addSpacing(12)
+            lay.addWidget(section_label(title))
+        lay.addWidget(content)
+        if note:
+            hint = QLabel(note)
+            hint.setObjectName("caption")
+            hint.setWordWrap(True)
+            hint.setContentsMargins(4, 0, 4, 0)
+            lay.addWidget(hint)
+
+    def _finish(self, page: QWidget, lay: QVBoxLayout, title: str) -> None:
+        lay.addStretch()
+        self.tabs.addTab(page, title)
+
+    def _section(self, text: str) -> QLabel:
+        return section_label(text)
+
+    # ---------- General ----------
     def _general_tab(self) -> None:
-        _, form = self._add_tab("General")
-        self.launch_startup = QCheckBox("Launch Waky when Windows starts")
+        page, lay = self._page()
+        self.launch_startup = QCheckBox("Start Waky when Windows starts")
+        self.show_floating_bar_on_startup = QCheckBox("Show the pill on startup")
+        self.sound_effects = QCheckBox("Sound effects")
+        # legacy options kept for older settings files; no longer shown
         self.start_minimized = QCheckBox("Start minimized")
         self.start_hidden_no_terminal = QCheckBox("Start hidden, no terminal window")
-        self.show_floating_bar_on_startup = QCheckBox("Show the floating pill on startup")
-        self.sound_effects = QCheckBox("Sound effects")
-        for widget in (self.launch_startup, self.start_minimized, self.start_hidden_no_terminal, self.show_floating_bar_on_startup, self.sound_effects):
-            form.addRow(widget)
-        self.appearance = QComboBox()
-        for label, key in (("Light", "light"), ("Dark", "dark"), ("Match Windows", "system")):
-            self.appearance.addItem(label, key)
-        self.appearance.currentIndexChanged.connect(lambda _i: self.appearance_changed.emit(self.appearance.currentData()))
-        form.addRow("Appearance", self.appearance)
+        startup = Group()
+        startup.addRow(self.launch_startup, hint="Waky opens quietly in the tray and the pill appears. No window pops up.")
+        startup.addRow(self.show_floating_bar_on_startup)
+        self._block(lay, "Startup", startup)
+        feel = Group()
+        feel.addRow(self.sound_effects, hint="Soft tones when recording starts, stops and finishes.")
+        self.appearance = Segmented([("light", "Light"), ("dark", "Dark"), ("system", "Auto")], "light")
+        self.appearance.changed.connect(self.appearance_changed.emit)
+        feel.addRow("Appearance", self.appearance)
+        self._block(lay, "Experience", feel)
+        self._finish(page, lay, "General")
 
     # ---------- Floating Bar page ----------
     SWATCHES = (("Waky blue", "#2E62FF"), ("Sky", "#32ADE6"), ("Indigo", "#5E5CE6"), ("Pink", "#FF375F"), ("Orange", "#FF9F0A"), ("Green", "#30D158"), ("White", "#FFFFFF"))
     ANCHOR_GRID = (("top_left", 0, 0), ("top_center", 0, 1), ("top_right", 0, 2), ("middle_left", 1, 0), ("middle_right", 1, 2),
                    ("bottom_left", 2, 0), ("bottom_center", 2, 1), ("bottom_right", 2, 2))
 
-    def _section(self, text: str) -> QLabel:
-        label = QLabel(text.upper())
-        label.setObjectName("section")
-        return label
-
     def _floating_bar_tab(self) -> None:
-        tab = QWidget()
-        lay = QVBoxLayout(tab)
-        lay.setContentsMargins(0, 0, 0, 0)
-        lay.setSpacing(12)
+        page, lay = self._page()
         fb = self.config_manager.settings.setdefault("floating_bar", {})
         accent = fb.get("accent", pill_styles.DEFAULT_ACCENT)
         self._fb_loading = False
 
         self.fb_preview = PillPreview(fb.get("style", pill_styles.DEFAULT_STYLE), accent, 1.0)
-        self.fb_preview.setFixedHeight(96)
+        self.fb_preview.setFixedHeight(92)
         lay.addWidget(self.fb_preview)
 
-        lay.addSpacing(4)
-        lay.addWidget(self._section("Style"))
-        grid = QGridLayout()
-        grid.setSpacing(12)
+        show = Group()
+        self.fb_visibility = Segmented([("always", "Always"), ("active", "While dictating"), ("hidden", "Hidden")], "always")
+        self.fb_visibility.changed.connect(self._fb_visibility_changed)
+        show.addRow("Show the pill", self.fb_visibility)
+        self.fb_visibility_note = QLabel("")
+        show.addRow(self.fb_visibility_note)
+        self._block(lay, "Visibility", show)
+
+        grid_host = QWidget()
+        grid = QGridLayout(grid_host)
+        grid.setContentsMargins(0, 0, 0, 0)
+        grid.setSpacing(10)
         self.style_cards: dict[str, StyleCard] = {}
         for i, style in enumerate(pill_styles.STYLES.values()):
             card = StyleCard(style, accent)
             card.clicked.connect(self._fb_pick_style)
             grid.addWidget(card, i // 3, i % 3)
             self.style_cards[style.key] = card
-        lay.addLayout(grid)
+        self._block(lay, "Style", grid_host)
 
-        lay.addSpacing(4)
-        lay.addWidget(self._section("Colour"))
-        row = QHBoxLayout()
-        row.setSpacing(10)
+        look = Group()
+        sw_host = QWidget()
+        sw = QHBoxLayout(sw_host)
+        sw.setContentsMargins(0, 0, 0, 0)
+        sw.setSpacing(7)
         self.swatches: list[tuple[str, QPushButton]] = []
         for name, hexv in self.SWATCHES:
             btn = QPushButton()
@@ -289,86 +330,79 @@ class SettingsWindow(QDialog):
             btn.setCursor(Qt.PointingHandCursor)
             btn.setStyleSheet(f"QPushButton#swatch {{ background: {hexv}; }}")
             btn.clicked.connect(lambda _c=False, h=hexv: self._fb_pick_color(h))
-            row.addWidget(btn)
+            sw.addWidget(btn)
             self.swatches.append((hexv, btn))
         custom = QPushButton("Custom...")
-        custom.setObjectName("plain")
+        custom.setObjectName("link")
         custom.clicked.connect(self._fb_custom_color)
-        row.addWidget(custom)
-        row.addStretch()
-        lay.addLayout(row)
-
-        lay.addSpacing(4)
-        lay.addWidget(self._section("Size"))
-        srow = QHBoxLayout()
+        sw.addWidget(custom)
+        look.addRow("Colour", sw_host)
+        size_host = QWidget()
+        srow = QHBoxLayout(size_host)
+        srow.setContentsMargins(0, 0, 0, 0)
         self.fb_size = QSlider(Qt.Horizontal)
         self.fb_size.setRange(60, 220)
         self.fb_size.setSingleStep(5)
         self.fb_size.setPageStep(10)
+        self.fb_size.setFixedWidth(190)
         self.fb_size_label = QLabel("100%")
-        self.fb_size_label.setFixedWidth(54)
+        self.fb_size_label.setObjectName("caption")
+        self.fb_size_label.setFixedWidth(44)
         self.fb_size_label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
         self.fb_size.valueChanged.connect(self._fb_size_changed)
-        srow.addWidget(self.fb_size, 1)
+        srow.addWidget(self.fb_size)
         srow.addWidget(self.fb_size_label)
-        lay.addLayout(srow)
+        look.addRow("Size", size_host)
+        self._block(lay, "Appearance", look)
 
-        lay.addSpacing(4)
-        lay.addWidget(self._section("Where it appears"))
-        self.pos_preset = QRadioButton("Same place every time Waky starts")
-        self.pos_remember = QRadioButton("Remember where I drag it (hold Alt and drag)")
-        self.pos_preset.toggled.connect(lambda _on: self._fb_position_changed())
-        lay.addWidget(self.pos_preset)
+        pos = Group()
+        self.pos_mode = Segmented([("preset", "Same spot"), ("remember", "Where I drag it")], "preset")
+        self.pos_mode.changed.connect(lambda _k: self._fb_position_changed())
+        pos.addRow("On every start", self.pos_mode, hint="Hold Alt and drag the pill to move it.")
         anchors = QGridLayout()
-        anchors.setHorizontalSpacing(6)
-        anchors.setVerticalSpacing(6)
+        anchors.setContentsMargins(8, 8, 8, 8)
+        anchors.setHorizontalSpacing(5)
+        anchors.setVerticalSpacing(5)
         self.anchor_buttons: dict[str, QPushButton] = {}
         for key, r, c in self.ANCHOR_GRID:
             b = QPushButton()
             b.setObjectName("anchor")
             b.setCheckable(True)
-            b.setFixedSize(46, 28)
+            b.setFixedSize(40, 22)
             b.setToolTip(key.replace("_", " ").title())
             b.clicked.connect(lambda _c=False, k=key: self._fb_pick_anchor(k))
             anchors.addWidget(b, r, c)
             self.anchor_buttons[key] = b
         screen_frame = QFrame()
         screen_frame.setObjectName("miniScreen")
-        sfl = QHBoxLayout(screen_frame)
-        sfl.setContentsMargins(10, 10, 10, 10)
-        sfl.addLayout(anchors)
-        wrap = QHBoxLayout()
-        wrap.addSpacing(26)
-        wrap.addWidget(screen_frame)
-        wrap.addStretch()
-        lay.addLayout(wrap)
-        mrow = QHBoxLayout()
-        mrow.addSpacing(26)
-        mlabel = QLabel("Distance from the edge")
-        mlabel.setObjectName("sub")
+        screen_frame.setLayout(anchors)
+        pos.addRow("Screen position", screen_frame)
+        margin_host = QWidget()
+        mrow = QHBoxLayout(margin_host)
+        mrow.setContentsMargins(0, 0, 0, 0)
         self.fb_margin = QSlider(Qt.Horizontal)
         self.fb_margin.setRange(0, 240)
-        self.fb_margin.setFixedWidth(220)
+        self.fb_margin.setFixedWidth(190)
         self.fb_margin_label = QLabel("40 px")
-        self.fb_margin_label.setFixedWidth(54)
+        self.fb_margin_label.setObjectName("caption")
+        self.fb_margin_label.setFixedWidth(44)
+        self.fb_margin_label.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
         self.fb_margin.valueChanged.connect(lambda _v: self._fb_position_changed())
-        mrow.addWidget(mlabel)
         mrow.addWidget(self.fb_margin)
         mrow.addWidget(self.fb_margin_label)
-        mrow.addStretch()
-        lay.addLayout(mrow)
-        lay.addWidget(self.pos_remember)
-
-        lay.addSpacing(4)
-        lay.addWidget(self._section("Behaviour"))
-        self.always_on_top = QCheckBox("Keep the pill above other windows")
-        self.alt_drag_only = QCheckBox("Drag only while holding Alt")
-        lay.addWidget(self.always_on_top)
-        lay.addWidget(self.alt_drag_only)
+        pos.addRow("Distance from the edge", margin_host)
         reset = QPushButton("Put it back in its default place")
         reset.clicked.connect(self._fb_reset_position)
-        lay.addWidget(reset, 0, Qt.AlignLeft)
-        self.tabs.addTab(tab, "Floating Bar")
+        pos.addRow(reset)
+        self._block(lay, "Position", pos)
+
+        behaviour = Group()
+        self.always_on_top = QCheckBox("Keep the pill above other windows")
+        self.alt_drag_only = QCheckBox("Drag only while holding Alt")
+        behaviour.addRow(self.always_on_top)
+        behaviour.addRow(self.alt_drag_only, hint="Hold Shift and click the pill to open Settings.")
+        self._block(lay, "Behaviour", behaviour)
+        self._finish(page, lay, "Floating Bar")
 
     def _fb_settings(self) -> dict:
         return self.config_manager.settings.setdefault("floating_bar", {})
@@ -378,6 +412,12 @@ class SettingsWindow(QDialog):
             return
         self.config_manager.save_settings()
         self.pill_style_changed.emit(self._fb_settings().get("style", pill_styles.DEFAULT_STYLE))
+
+    VISIBILITY_NOTES = {
+        "always": "The pill stays on screen so you always know Waky is ready.",
+        "active": "The pill fades in only when you hold the hotkey or Waky is working, then fades away.",
+        "hidden": "The pill never shows. Waky still works; use the tray icon to change this.",
+    }
 
     def _fb_refresh_controls(self) -> None:
         fb = self._fb_settings()
@@ -390,14 +430,21 @@ class SettingsWindow(QDialog):
             btn.setChecked(hexv.lower() == str(accent).lower())
         self.fb_preview.set_look(style, accent, max(0.6, min(1.6, fb.get("size", 100) / 100.0)))
         mode = fb.get("position_mode", "preset")
-        self.pos_preset.blockSignals(True)
-        self.pos_preset.setChecked(mode != "remember")
-        self.pos_remember.setChecked(mode == "remember")
-        self.pos_preset.blockSignals(False)
+        self.pos_mode.set_value("remember" if mode == "remember" else "preset", animate=False)
         for key, btn in self.anchor_buttons.items():
             btn.setChecked(key == fb.get("anchor", "bottom_center"))
             btn.setEnabled(mode != "remember")
         self.fb_margin.setEnabled(mode != "remember")
+        visibility = fb.get("visibility", "always")
+        self.fb_visibility.set_value(visibility if visibility in self.VISIBILITY_NOTES else "always", animate=False)
+        self.fb_visibility_note.setText(self.VISIBILITY_NOTES.get(self.fb_visibility.value(), ""))
+
+    def _fb_visibility_changed(self, key: str) -> None:
+        fb = self._fb_settings()
+        fb["visibility"] = key
+        fb.pop("hidden", None)
+        self.fb_visibility_note.setText(self.VISIBILITY_NOTES.get(key, ""))
+        self._fb_commit()
 
     def _fb_pick_style(self, key: str) -> None:
         self._fb_settings()["style"] = key
@@ -430,7 +477,7 @@ class SettingsWindow(QDialog):
         if self._fb_loading:
             return
         fb = self._fb_settings()
-        fb["position_mode"] = "preset" if self.pos_preset.isChecked() else "remember"
+        fb["position_mode"] = self.pos_mode.value()
         fb["margin"] = self.fb_margin.value()
         self.fb_margin_label.setText(f"{self.fb_margin.value()} px")
         self._fb_refresh_controls()
@@ -455,50 +502,82 @@ class SettingsWindow(QDialog):
         self._fb_refresh_controls()
         self._fb_loading = False
 
+    # ---------- Hotkeys ----------
     def _hotkeys_tab(self) -> None:
-        _, form = self._add_tab("Hotkeys")
+        page, lay = self._page()
         self.ptt_hotkey = HotkeyEdit()
         self.ptt_backup_hotkey = HotkeyEdit()
         self.toggle_hotkey = HotkeyEdit()
         self.cancel_hotkey = HotkeyEdit(allow_single=True)
-        reset = QPushButton("Reset to Ctrl+Win/F8 defaults")
+        self.paste_last_hotkey = HotkeyEdit()
+        keys = Group()
+        keys.addRow("Push-to-talk", self.ptt_hotkey, hint="Hold while you speak, release to paste.")
+        keys.addRow("Backup push-to-talk", self.ptt_backup_hotkey, hint="Works if another app owns your main combo.")
+        keys.addRow("Hands-free toggle", self.toggle_hotkey, hint="Press once to start, again to stop.")
+        keys.addRow("Cancel", self.cancel_hotkey)
+        self._block(lay, "Dictation", keys)
+        extra = Group()
+        paste_host = QWidget()
+        prow = QHBoxLayout(paste_host)
+        prow.setContentsMargins(0, 0, 0, 0)
+        prow.setSpacing(6)
+        self.paste_last_hotkey.setFixedWidth(210)
+        clear = QPushButton("Clear")
+        clear.setObjectName("link")
+        clear.clicked.connect(lambda: self.paste_last_hotkey.setText(""))
+        prow.addWidget(self.paste_last_hotkey)
+        prow.addWidget(clear)
+        extra.addRow("Paste last result", paste_host, hint="Pastes your most recent dictation again. Optional.")
+        self._block(lay, "Extras", extra)
+        tip = Group()
+        tip.addRow(QLabel(
+            "Mouse buttons work too. Click a box above, then press your mouse's middle button or a side (Back / Forward) button. "
+            "A button used as a hotkey no longer does its normal job while Waky runs."
+        ))
+        reset = QPushButton("Reset to defaults")
         reset.clicked.connect(self._reset_hotkeys)
-        form.addRow("Push-to-talk", self.ptt_hotkey)
-        form.addRow("Backup push-to-talk", self.ptt_backup_hotkey)
-        form.addRow("Hands-free toggle", self.toggle_hotkey)
-        form.addRow("Cancel", self.cancel_hotkey)
-        form.addRow(reset)
-        form.addRow(QLabel("Click a box, then press the keys you want (hold them together). Recommended: Ctrl+Win for dictation, F8 as backup, F9 for toggle."))
+        tip.addRow(reset)
+        self._block(lay, "Good to know", tip)
+        self._finish(page, lay, "Hotkeys")
 
+    # ---------- Audio ----------
     def _audio_tab(self) -> None:
-        tab = QWidget()
-        layout = QVBoxLayout(tab)
-        form = QFormLayout()
+        page, lay = self._page()
         self.microphone = QComboBox()
-        self.refresh_mics = QPushButton("Refresh device list")
-        self.test_mic = QPushButton("Quick mic test")
-        self.test_mic_3s = QPushButton("3-second mic test")
+        self.refresh_mics = QPushButton("Refresh list")
+        self.test_mic = QPushButton("Quick test")
+        self.test_mic_3s = QPushButton("3-second test")
         self.test_result = QLabel("Not tested")
+        self.test_result.setObjectName("caption")
+        self.test_result.setWordWrap(True)
         self.trim_silence = QCheckBox("Trim silence at the start and end")
-        self.keep_ready = QCheckBox("Keep the microphone ready (instant start, no clipped first word)")
+        self.keep_ready = QCheckBox("Keep the microphone ready")
         self.refresh_mics.clicked.connect(self._load_microphones)
         self.test_mic.clicked.connect(lambda: self._test_microphone(1.0))
         self.test_mic_3s.clicked.connect(lambda: self._test_microphone(3.0))
-        form.addRow("Microphone", self.microphone)
-        form.addRow(self.refresh_mics)
-        form.addRow(self.test_mic, self.test_mic_3s)
-        form.addRow("Input level", self.test_result)
-        form.addRow(self.keep_ready)
-        form.addRow(self.trim_silence)
-        layout.addLayout(form)
+        mic = Group()
+        self.microphone.setFixedWidth(300)
+        mic.addRow("Microphone", self.microphone)
+        buttons = FlowLayout(spacing=8)
+        for b in (self.refresh_mics, self.test_mic, self.test_mic_3s):
+            buttons.addWidget(b)
+        mic.addRow(buttons)
+        mic.addRow("Input level", self.test_result)
+        self._block(lay, "Input", mic)
+        behaviour = Group()
+        behaviour.addRow(self.keep_ready, hint="Instant start with no clipped first word. Windows may show its mic indicator while Waky runs.")
+        behaviour.addRow(self.trim_silence)
+        self._block(lay, "Behaviour", behaviour)
         help_label = QLabel(MIC_HELP_TEXT)
         help_label.setWordWrap(True)
-        layout.addWidget(help_label)
-        layout.addStretch()
-        self.tabs.addTab(tab, "Audio")
+        tips = Group()
+        tips.addRow(help_label)
+        self._block(lay, "If the mic is silent", tips)
+        self._finish(page, lay, "Audio")
 
+    # ---------- Transcription ----------
     def _transcription_tab(self) -> None:
-        _, form = self._add_tab("Transcription")
+        page, lay = self._page()
         self.backend = QComboBox()
         self.backend.addItem("Groq API", "groq")
         self.backend.addItem("Local faster-whisper", "local")
@@ -521,198 +600,188 @@ class SettingsWindow(QDialog):
         self.speed_mode.addItems(["fast", "balanced", "accurate"])
         self.speed_mode.currentTextChanged.connect(self._apply_accuracy_preset_to_controls)
         self.device_display = QLabel(self.transcriber.device_display())
+        self.device_display.setObjectName("caption")
         self.backend_display = QLabel("Active backend: not checked yet")
-        form.addRow("Backend", self.backend)
-        form.addRow("Groq model", self.groq_model)
-        form.addRow("Transcription engine mode", self.engine_mode)
-        form.addRow("Safe mode implementation", self.safe_mode_implementation)
-        form.addRow("Local model", self.model)
+
+        main = Group()
+        main.addRow("Backend", self.backend)
+        main.addRow("Groq model", self.groq_model)
+        main.addRow("Language", self.language_mode)
+        main.addRow("Accuracy preset", self.speed_mode)
+        main.addRow(self.backend_display)
+        self._block(lay, "Speech to text", main)
+
+        local = Group()
+        local.addRow("Local model", self.model)
         self.model_status = QLabel("")
-        self.model_download_button = QPushButton("Download local model (offline fallback)")
+        self.model_status.setObjectName("caption")
+        self.model_status.setWordWrap(True)
+        self.model_download_button = QPushButton("Download local model")
         self.model_download_button.clicked.connect(self._download_local_model)
         self.model_download_finished.connect(self._model_download_done)
         self.model.currentTextChanged.connect(self._refresh_model_status)
-        form.addRow(self.model_download_button, self.model_status)
+        local.addRow(self.model_download_button, self.model_status)
         self._refresh_model_status()
-        form.addRow("Device", self.device_display)
-        form.addRow("Language", self.language_mode)
-        form.addRow("Accuracy preset", self.speed_mode)
-        form.addRow(self.backend_display)
+        local.addRow("Device", self.device_display)
+        self._block(lay, "Offline fallback", local, "If Groq's free limit is reached, Waky switches to this model and back again automatically.")
 
+        advanced = Group()
+        advanced.addRow("Engine mode", self.engine_mode)
+        advanced.addRow("Safe mode implementation", self.safe_mode_implementation)
+        self._block(lay, "Advanced", advanced)
+        self._finish(page, lay, "Transcription")
+
+    # ---------- Output ----------
     def _output_tab(self) -> None:
-        _, form = self._add_tab("Output")
+        page, lay = self._page()
         self.default_mode = QComboBox()
         for key, label in MODE_LABELS.items():
             self.default_mode.addItem(label, key)
-        self.auto_paste = QCheckBox("Auto-paste")
-        self.preserve_clipboard = QCheckBox("Preserve clipboard")
+        self.auto_paste = QCheckBox("Paste automatically")
+        self.preserve_clipboard = QCheckBox("Restore my clipboard afterwards")
         self.never_enter = QCheckBox("Never press Enter")
         self.never_enter.setEnabled(False)
-        form.addRow("Default mode", self.default_mode)
-        form.addRow(self.auto_paste)
-        form.addRow(self.preserve_clipboard)
-        form.addRow(self.never_enter)
+        g = Group()
+        g.addRow("Default mode", self.default_mode)
+        g.addRow(self.auto_paste)
+        g.addRow(self.preserve_clipboard)
+        g.addRow(self.never_enter, hint="Waky never sends a message for you.")
+        self._block(lay, None, g)
+        self._finish(page, lay, "Output")
 
+    # ---------- Commands ----------
     def _commands_tab(self) -> None:
-        tab = QWidget()
-        layout = QVBoxLayout(tab)
-        form = QFormLayout()
-        self.voice_commands_enabled = QCheckBox("Enable Voice Commands")
-        self.auto_translate_to_english = QCheckBox("Auto Translate to English")
-        self.auto_fix_grammar = QCheckBox("Auto Fix Grammar")
-        self.smart_selected_rewrite_enabled = QCheckBox("Smart Selected Text Rewrite")
+        page, lay = self._page()
+        self.voice_commands_enabled = QCheckBox("Enable voice commands")
+        self.auto_translate_to_english = QCheckBox("Auto translate to English")
+        self.auto_fix_grammar = QCheckBox("Auto fix grammar")
+        self.smart_selected_rewrite_enabled = QCheckBox("Rewrite selected text")
         self.selected_rewrite_ai_mode = QComboBox()
         self.selected_rewrite_ai_mode.addItems(["auto", "cloud_if_available", "rule_based_only"])
-        self.preserve_clipboard_after_selected_rewrite = QCheckBox("Preserve clipboard after selected rewrite")
+        self.preserve_clipboard_after_selected_rewrite = QCheckBox("Restore clipboard after a rewrite")
         self.selected_capture_timeout_ms = QSpinBox()
         self.selected_capture_timeout_ms.setRange(100, 1000)
         self.selected_capture_timeout_ms.setSuffix(" ms")
-        self.selected_rewrite_help = QLabel(
-            "Select text anywhere, hold Ctrl+Win, speak commands, and Waky will replace the selection. "
-            "No selection falls back to normal dictation."
-        )
-        self.selected_rewrite_help.setWordWrap(True)
-        self.command_prompt_mode_enabled = QCheckBox("Enable Prompt Mode Command")
-        self.command_bullet_points_enabled = QCheckBox("Enable Bullet Points Command")
-        self.command_rewrite_humanizer_enabled = QCheckBox("Enable Rewrite & Humanizer Command")
-        self.command_call_caps_small_enabled = QCheckBox("Enable Call Caps Small Command")
-        self.command_professional_tone_enabled = QCheckBox("Enable Professional Tone Command")
-        self.command_casual_tone_enabled = QCheckBox("Enable Casual Tone Command")
-        self.command_write_email_enabled = QCheckBox("Enable Write Email Command")
-        self.command_extend_enabled = QCheckBox("Enable Extend Command")
-        for widget in (
-            self.voice_commands_enabled,
-            self.auto_translate_to_english,
-            self.auto_fix_grammar,
-            self.smart_selected_rewrite_enabled,
-            self.preserve_clipboard_after_selected_rewrite,
-            self.command_prompt_mode_enabled,
-            self.command_bullet_points_enabled,
-            self.command_rewrite_humanizer_enabled,
-            self.command_call_caps_small_enabled,
-            self.command_professional_tone_enabled,
-            self.command_casual_tone_enabled,
-            self.command_write_email_enabled,
-            self.command_extend_enabled,
-        ):
-            form.addRow(widget)
-        form.addRow("Selected rewrite AI mode", self.selected_rewrite_ai_mode)
-        form.addRow("Selected capture timeout", self.selected_capture_timeout_ms)
-        form.addRow(self.selected_rewrite_help)
-        layout.addLayout(form)
-        command_buttons = FlowLayout(spacing=8)
-        self.command_list = QListWidget()
+        self.command_prompt_mode_enabled = QCheckBox("Prompt mode")
+        self.command_bullet_points_enabled = QCheckBox("Bullet points")
+        self.command_rewrite_humanizer_enabled = QCheckBox("Rewrite and humanizer")
+        self.command_call_caps_small_enabled = QCheckBox("Call caps small")
+        self.command_professional_tone_enabled = QCheckBox("Professional tone")
+        self.command_casual_tone_enabled = QCheckBox("Casual tone")
+        self.command_write_email_enabled = QCheckBox("Write email")
+        self.command_extend_enabled = QCheckBox("Extend")
+
+        general = Group()
+        for w in (self.voice_commands_enabled, self.auto_translate_to_english, self.auto_fix_grammar, self.smart_selected_rewrite_enabled,
+                  self.preserve_clipboard_after_selected_rewrite):
+            general.addRow(w)
+        general.addRow("Selected rewrite AI", self.selected_rewrite_ai_mode)
+        general.addRow("Selection capture timeout", self.selected_capture_timeout_ms)
+        general.addRow(QLabel("Select text anywhere, hold your hotkey, say what to change, and Waky replaces the selection. With nothing selected it dictates as usual."))
+        self._block(lay, "Voice commands", general)
+
+        built_in = Group()
+        for w in (self.command_prompt_mode_enabled, self.command_bullet_points_enabled, self.command_rewrite_humanizer_enabled,
+                  self.command_call_caps_small_enabled, self.command_professional_tone_enabled, self.command_casual_tone_enabled,
+                  self.command_write_email_enabled, self.command_extend_enabled):
+            built_in.addRow(w)
+        self._block(lay, "Built-in modes", built_in, "Say the mode name inside a sentence, for example: write email, tell sir I am not feeling well.")
+
         self.custom_instructions = QPlainTextEdit()
-        self.custom_instructions.setFixedHeight(80)
+        self.custom_instructions.setFixedHeight(84)
         self.custom_instructions.setPlaceholderText("Applies to everything you dictate. e.g. 'I am Nayan, a UX designer. Use simple English. Sign emails as Nayan.'")
-        layout.addWidget(QLabel("My standing instructions (used for every dictation and rewrite)"))
-        layout.addWidget(self.custom_instructions)
-        layout.addWidget(QLabel("Modes / commands (say the trigger phrase while dictating)"))
-        layout.addWidget(self.command_list)
-        editor = QFormLayout()
+        standing = Group()
+        standing.addRow("My standing instructions", self.custom_instructions, hint="Used for every dictation and rewrite.")
+        self._block(lay, "About you", standing)
+
+        self.command_list = QListWidget()
+        self.command_list.setFixedHeight(140)
         self.command_display_name = QLineEdit()
         self.command_enabled = QCheckBox("Enabled")
         self.command_triggers = QPlainTextEdit()
+        self.command_triggers.setFixedHeight(66)
         self.command_triggers.setPlaceholderText("One trigger phrase per line")
         self.command_instruction = QPlainTextEdit()
+        self.command_instruction.setFixedHeight(92)
         self.command_instruction.setPlaceholderText("Tell the AI what this mode does, e.g. 'Write a short blog post with a catchy title from what I said.'")
         self.command_output_format = QPlainTextEdit()
-        self.command_output_format.setFixedHeight(70)
+        self.command_output_format.setFixedHeight(58)
         self.command_output_format.setPlaceholderText("Optional layout, e.g. 'Subject: ...' then greeting, body, sign-off")
         self.command_priority = QSpinBox()
         self.command_priority.setRange(1, 999)
-        editor.addRow("Display name", self.command_display_name)
-        editor.addRow(self.command_enabled)
-        editor.addRow("Trigger phrases", self.command_triggers)
-        editor.addRow("Instruction for AI", self.command_instruction)
-        editor.addRow("Output format", self.command_output_format)
-        editor.addRow("Priority", self.command_priority)
-        layout.addLayout(editor)
+        modes = Group()
+        modes.addRow("Your modes", self.command_list, hint="Say the trigger phrase while dictating.")
+        modes.addRow("Display name", self.command_display_name)
+        modes.addRow(self.command_enabled)
+        modes.addRow("Trigger phrases", self.command_triggers)
+        modes.addRow("Instruction for AI", self.command_instruction)
+        modes.addRow("Output format", self.command_output_format)
+        modes.addRow("Priority", self.command_priority)
         self.command_list.currentRowChanged.connect(self._load_selected_command)
         self.open_commands_config = QPushButton("Open commands.json")
-        self.save_command_edit = QPushButton("Save Command")
-        self.add_command = QPushButton("Add Command")
-        self.delete_command = QPushButton("Delete Command")
-        self.reload_commands_config = QPushButton("Reload Commands")
-        self.reset_commands_config = QPushButton("Reset Built-in Commands")
+        self.save_command_edit = QPushButton("Save command")
+        self.add_command = QPushButton("Add command")
+        self.delete_command = QPushButton("Delete")
+        self.reload_commands_config = QPushButton("Reload")
+        self.reset_commands_config = QPushButton("Reset built-ins")
         self.open_commands_config.clicked.connect(self._open_commands_config)
         self.save_command_edit.clicked.connect(self._save_selected_command)
         self.add_command.clicked.connect(self._add_command)
         self.delete_command.clicked.connect(self._delete_command)
         self.reload_commands_config.clicked.connect(self._reload_commands_config)
         self.reset_commands_config.clicked.connect(self._reset_commands_config)
-        command_buttons.addWidget(self.open_commands_config)
-        command_buttons.addWidget(self.save_command_edit)
-        command_buttons.addWidget(self.add_command)
-        command_buttons.addWidget(self.delete_command)
-        command_buttons.addWidget(self.reload_commands_config)
-        command_buttons.addWidget(self.reset_commands_config)
-        layout.addLayout(command_buttons)
-        examples = QLabel(
-            "Examples:\n"
-            "- prompt mode make me a tool that cleans my PC safely\n"
-            "- bullet points today I finished homepage design fixed navbar and updated hero section\n"
-            "- rewrite and humanizer I cannot come today because urgent work came\n"
-            "- professional tone I will send the file today\n"
-            "- casual tone I will send the file today\n"
-            "- write email tell sir I am not feeling well\n"
-            "- extend I am not feeling well and cannot attend the exam"
-        )
-        examples.setWordWrap(True)
-        layout.addWidget(examples)
-        layout.addStretch()
-        self.tabs.addTab(tab, "Commands")
+        self.save_command_edit.setObjectName("primary")
+        command_buttons = FlowLayout(spacing=8)
+        for b in (self.save_command_edit, self.add_command, self.delete_command, self.reload_commands_config, self.reset_commands_config, self.open_commands_config):
+            command_buttons.addWidget(b)
+        modes.addRow(command_buttons)
+        self._block(lay, "Custom modes", modes)
+        self._finish(page, lay, "Commands")
 
+    # ---------- Memory ----------
     def _memory_tab(self) -> None:
-        tab = QWidget()
-        layout = QVBoxLayout(tab)
-        form = QFormLayout()
-        self.local_memory_enabled = QCheckBox("Enable Local Memory")
+        page, lay = self._page()
+        self.local_memory_enabled = QCheckBox("Enable local memory")
         self.memory_active_project = QLineEdit()
-        self.switch_memory_project = QPushButton("Switch Project")
+        self.switch_memory_project = QPushButton("Switch project")
         self.memory_save_transcript_summaries = QCheckBox("Save transcript summaries")
         self.memory_save_full_transcripts = QCheckBox("Save full transcripts")
         self.memory_save_selected_rewrite_examples = QCheckBox("Save selected rewrite examples")
         self.memory_use_cloud_for_summarization = QCheckBox("Use cloud to summarize memory")
         self.memory_auto_save_useful_vocabulary = QCheckBox("Auto-save useful vocabulary")
-        for widget in (
-            self.local_memory_enabled,
-            self.memory_save_transcript_summaries,
-            self.memory_save_full_transcripts,
-            self.memory_save_selected_rewrite_examples,
-            self.memory_use_cloud_for_summarization,
-            self.memory_auto_save_useful_vocabulary,
-        ):
-            form.addRow(widget)
-        form.addRow("Active Project", self.memory_active_project)
-        form.addRow(self.switch_memory_project)
-        layout.addLayout(form)
+        g = Group()
+        for w in (self.local_memory_enabled, self.memory_save_transcript_summaries, self.memory_save_full_transcripts,
+                  self.memory_save_selected_rewrite_examples, self.memory_use_cloud_for_summarization, self.memory_auto_save_useful_vocabulary):
+            g.addRow(w)
+        self._block(lay, "What Waky remembers", g, "Everything stays on this PC in %APPDATA%\\Waky.")
+        project = Group()
+        project.addRow("Active project", self.memory_active_project)
+        project.addRow(self.switch_memory_project)
+        self._block(lay, "Project", project)
 
+        self.open_memory_folder = QPushButton("Open memory folder")
+        self.add_memory_correction = QPushButton("Add correction")
+        self.add_memory_vocabulary = QPushButton("Add vocabulary")
+        self.add_memory_note = QPushButton("Add note")
+        self.add_memory_preference = QPushButton("Add writing preference")
+        self.add_memory_project_context = QPushButton("Add project context")
+        self.summarize_memory_project = QPushButton("Summarize project")
+        self.clear_memory_button = QPushButton("Clear memory")
+        self.clear_memory_button.setObjectName("danger")
         buttons = FlowLayout(spacing=8)
-        self.open_memory_folder = QPushButton("Open Memory Folder")
-        self.add_memory_correction = QPushButton("Add Correction")
-        self.add_memory_vocabulary = QPushButton("Add Vocabulary")
-        self.add_memory_note = QPushButton("Add Memory Note")
-        self.add_memory_preference = QPushButton("Add Writing Preference")
-        self.add_memory_project_context = QPushButton("Add Project Context")
-        self.summarize_memory_project = QPushButton("Summarize Active Project")
-        self.clear_memory_button = QPushButton("Clear Memory")
-        for button in (
-            self.open_memory_folder,
-            self.add_memory_correction,
-            self.add_memory_vocabulary,
-            self.add_memory_note,
-            self.add_memory_preference,
-            self.add_memory_project_context,
-            self.summarize_memory_project,
-            self.clear_memory_button,
-        ):
-            buttons.addWidget(button)
-        layout.addLayout(buttons)
+        for b in (self.add_memory_correction, self.add_memory_vocabulary, self.add_memory_note, self.add_memory_preference,
+                  self.add_memory_project_context, self.summarize_memory_project, self.open_memory_folder, self.clear_memory_button):
+            buttons.addWidget(b)
+        actions = Group()
+        actions.addRow(buttons)
+        self._block(lay, "Actions", actions)
 
         self.memory_summary_text = QPlainTextEdit()
         self.memory_summary_text.setReadOnly(True)
-        layout.addWidget(self.memory_summary_text)
+        self.memory_summary_text.setFixedHeight(190)
+        summary = Group()
+        summary.addRow("Summary", self.memory_summary_text)
+        self._block(lay, None, summary)
         self.open_memory_folder.clicked.connect(lambda: os.startfile(MEMORY_DIR))
         self.switch_memory_project.clicked.connect(self._switch_memory_project)
         self.add_memory_correction.clicked.connect(self._add_memory_correction)
@@ -722,40 +791,37 @@ class SettingsWindow(QDialog):
         self.add_memory_project_context.clicked.connect(self._add_memory_project_context)
         self.summarize_memory_project.clicked.connect(self._summarize_memory_project)
         self.clear_memory_button.clicked.connect(self._clear_memory)
-        self.tabs.addTab(tab, "Memory")
+        self._finish(page, lay, "Memory")
 
+    # ---------- Vocabulary / Snippets ----------
     def _vocabulary_tab(self) -> None:
-        tab = QWidget()
-        layout = QVBoxLayout(tab)
+        page, lay = self._page()
         self.vocab_list = QListWidget()
-        controls = FlowLayout(spacing=8)
-        add = QPushButton("Add")
+        self.vocab_list.setFixedHeight(280)
+        add = QPushButton("Add word")
         remove = QPushButton("Remove")
         add.clicked.connect(self._add_vocab)
         remove.clicked.connect(lambda: self._remove_selected(self.vocab_list))
-        controls.addWidget(add)
-        controls.addWidget(remove)
-        layout.addWidget(QLabel("Custom words"))
-        layout.addWidget(self.vocab_list)
-        layout.addLayout(controls)
-        self.tabs.addTab(tab, "Vocabulary")
+        g = Group()
+        g.addRow("Custom words", self.vocab_list, hint="Names, brands and terms Waky should always spell your way.")
+        g.addRow(add, remove)
+        self._block(lay, None, g)
+        self._finish(page, lay, "Vocabulary")
 
     def _snippets_tab(self) -> None:
-        tab = QWidget()
-        layout = QVBoxLayout(tab)
-        layout.setContentsMargins(18, 18, 18, 18)
-        layout.setSpacing(10)
+        page, lay = self._page()
         self.snippets_enabled = QCheckBox("Enable snippets")
         self.snippet_search = QLineEdit()
         self.snippet_search.setPlaceholderText("Search snippets...")
+        self.snippet_search.setClearButtonEnabled(True)
         self.snippet_list = QListWidget()
+        self.snippet_list.setFixedHeight(260)
         self.snippet_index_map: list[int] = []
-        controls = FlowLayout(spacing=8)
         add = QPushButton("Add")
         edit = QPushButton("Edit")
-        toggle = QPushButton("Enable/Disable")
+        toggle = QPushButton("Enable / disable")
         remove = QPushButton("Delete")
-        import_file = QPushButton("Import CSV/TSV")
+        import_file = QPushButton("Import CSV / TSV")
         open_file = QPushButton("Open snippets file")
         add.clicked.connect(self._add_snippet)
         edit.clicked.connect(self._edit_snippet)
@@ -763,25 +829,24 @@ class SettingsWindow(QDialog):
         remove.clicked.connect(self._remove_snippet)
         import_file.clicked.connect(self._import_snippets_file)
         open_file.clicked.connect(lambda: os.startfile(MEMORY_DIR / "snippets.json"))
-        controls.addWidget(add)
-        controls.addWidget(edit)
-        controls.addWidget(toggle)
-        controls.addWidget(remove)
-        controls.addWidget(import_file)
-        controls.addWidget(open_file)
         self.snippet_search.textChanged.connect(self._reload_snippet_list)
-        layout.addWidget(QLabel("Create quick replacements such as 'my phone number' or 'paste my email'."))
-        layout.addWidget(self.snippets_enabled)
-        layout.addWidget(self.snippet_search)
-        layout.addWidget(self.snippet_list)
-        layout.addLayout(controls)
-        self.tabs.addTab(tab, "Snippets")
+        controls = FlowLayout(spacing=8)
+        for b in (add, edit, toggle, remove, import_file, open_file):
+            controls.addWidget(b)
+        g = Group()
+        g.addRow(self.snippets_enabled, hint="Quick replacements such as 'my phone number' or 'paste my email'.")
+        g.addRow(self.snippet_search)
+        g.addRow(self.snippet_list)
+        g.addRow(controls)
+        self._block(lay, None, g)
+        self._finish(page, lay, "Snippets")
 
+    # ---------- Privacy ----------
     def _privacy_tab(self) -> None:
-        _, form = self._add_tab("Privacy")
+        page, lay = self._page()
         self.save_recordings = QCheckBox("Save recordings")
         self.save_recordings.setEnabled(False)
-        self.cloud_cleanup = QCheckBox("Cloud cleanup: Off by default. When enabled, transcript text may be sent to selected provider.")
+        self.cloud_cleanup = QCheckBox("Cloud cleanup")
         self.provider = QComboBox()
         self.provider.addItems(["local_basic", "groq", "openai", "openrouter", "gemini"])
         self.gemini_key = QLineEdit()
@@ -793,50 +858,215 @@ class SettingsWindow(QDialog):
         self.logs_level = QComboBox()
         self.logs_level.addItems(["warning", "debug"])
         self.include_transcript_logs = QCheckBox("Include transcript in debug logs")
-        form.addRow(self.save_recordings)
-        form.addRow(self.cloud_cleanup)
-        form.addRow("Provider", self.provider)
-        form.addRow("Gemini API key", self.gemini_key)
-        form.addRow("Groq API key", self.groq_key)
-        form.addRow("OpenAI API key", self.openai_key)
-        form.addRow("OpenRouter API key", self.openrouter_key)
-        form.addRow("Logs level", self.logs_level)
-        form.addRow(self.include_transcript_logs)
+
+        data = Group()
+        data.addRow(self.save_recordings, hint="Audio is never written to disk.")
+        data.addRow(self.cloud_cleanup, hint="Off by default. When on, transcript text may be sent to the selected provider.")
+        self._block(lay, "Your data", data)
+        keys = Group()
+        keys.addRow("Provider", self.provider)
+        self._provider_rows = {
+            "gemini": keys.addRow("Gemini API key", self.gemini_key),
+            "groq": keys.addRow("Groq API key", self.groq_key),
+            "openai": keys.addRow("OpenAI API key", self.openai_key),
+            "openrouter": keys.addRow("OpenRouter API key", self.openrouter_key),
+        }
+        self._provider_group = keys
+        self._block(lay, "Providers", keys, "Keys are stored in Windows Credential Manager, never in plain text on disk.")
+        logs = Group()
+        logs.addRow("Logs level", self.logs_level)
+        logs.addRow(self.include_transcript_logs)
+        self._block(lay, "Logs", logs)
         self.provider.currentTextChanged.connect(self._update_provider_visibility)
+        self._finish(page, lay, "Privacy")
 
+    # ---------- Updates ----------
+    def _updates_tab(self) -> None:
+        page, lay = self._page()
+        self.update_status = QLabel("")
+        self.update_status.setObjectName("caption")
+        self.update_status.setWordWrap(True)
+        self.update_check_btn = QPushButton("Check for updates")
+        self.update_install_btn = QPushButton("Download and install")
+        self.update_install_btn.setObjectName("primary")
+        self.update_skip_btn = QPushButton("Skip this version")
+        self.update_skip_btn.setObjectName("link")
+        self.update_progress = QProgressBar()
+        self.update_progress.setRange(0, 100)
+        self.update_progress.setTextVisible(False)
+        self.update_notes = QPlainTextEdit()
+        self.update_notes.setReadOnly(True)
+        self.update_notes.setFixedHeight(130)
+        self.update_auto = QCheckBox("Check for updates automatically")
+        self.update_check_btn.clicked.connect(self._check_updates)
+        self.update_install_btn.clicked.connect(self._install_update)
+        self.update_skip_btn.clicked.connect(self._skip_update)
+
+        card = Group()
+        title = QLabel(f"Waky {__version__}")
+        title.setObjectName("rowLabel")
+        title.setStyleSheet("font-weight:600;")
+        card.addRow(title)
+        card.addRow(self.update_status)
+        self._update_progress_row = card.addWidgetRow(self.update_progress)
+        self._update_notes_row = card.addRow(self.update_notes)
+        actions = FlowLayout(spacing=8)
+        actions.addWidget(self.update_check_btn)
+        actions.addWidget(self.update_install_btn)
+        actions.addWidget(self.update_skip_btn)
+        card.addRow(actions)
+        self._update_group = card
+        self._block(lay, None, card)
+        auto = Group()
+        auto.addRow(self.update_auto, hint="Checks GitHub at most once a day. Nothing downloads until you press Install.")
+        self._block(lay, "Preferences", auto)
+        self._finish(page, lay, "Updates")
+        self._reset_update_ui()
+
+    def set_updater(self, updater) -> None:
+        self.updater = updater
+        if not self._updater_connected:
+            self._updater_connected = True
+            updater.update_found.connect(self._on_update_found)
+            updater.up_to_date.connect(self._on_up_to_date)
+            updater.check_failed.connect(self._on_check_failed)
+            updater.progress.connect(self._on_update_progress)
+            updater.installer_ready.connect(self._on_installer_ready)
+            updater.install_failed.connect(self._on_install_failed)
+        if updater.latest:
+            self._on_update_found(updater.latest)
+
+    def _reset_update_ui(self) -> None:
+        self.update_status.setText("Press Check for updates to see if a newer version is available.")
+        self.update_status.setObjectName("caption")
+        self.update_install_btn.hide()
+        self.update_skip_btn.hide()
+        self._update_group.set_row_visible(self._update_progress_row, False)
+        self._update_group.set_row_visible(self._update_notes_row, False)
+        self.update_check_btn.setEnabled(True)
+
+    def _set_update_status(self, text: str, kind: str = "caption") -> None:
+        self.update_status.setObjectName(kind)
+        self.update_status.style().unpolish(self.update_status)
+        self.update_status.style().polish(self.update_status)
+        self.update_status.setText(text)
+
+    def _check_updates(self) -> None:
+        if not self.updater:
+            return
+        self._set_update_status("Checking for updates...")
+        self.update_check_btn.setEnabled(False)
+        self.updater.check(manual=True)
+
+    def _on_update_found(self, info) -> None:
+        self.update_check_btn.setEnabled(True)
+        size = f" ({info.size / 1_048_576:.0f} MB)" if info.size else ""
+        self._set_update_status(f"Version {info.version} is available{size}. You have {__version__}.", "ok")
+        notes = info.notes.strip()
+        self.update_notes.setPlainText(notes[:2500] if notes else "No release notes.")
+        self._update_group.set_row_visible(self._update_notes_row, True)
+        self.update_install_btn.setEnabled(True)
+        self.update_install_btn.show()
+        self.update_skip_btn.show()
+
+    def _on_up_to_date(self) -> None:
+        self.update_check_btn.setEnabled(True)
+        self.update_install_btn.hide()
+        self.update_skip_btn.hide()
+        self._update_group.set_row_visible(self._update_notes_row, False)
+        self._set_update_status(f"You are up to date. Waky {__version__} is the latest version.", "ok")
+
+    def _on_check_failed(self, message: str) -> None:
+        self.update_check_btn.setEnabled(True)
+        self._set_update_status(message, "bad")
+
+    def _install_update(self) -> None:
+        if not self.updater:
+            return
+        self.update_install_btn.setEnabled(False)
+        self.update_check_btn.setEnabled(False)
+        self.update_skip_btn.hide()
+        self.update_progress.setValue(0)
+        self._update_group.set_row_visible(self._update_progress_row, True)
+        self._set_update_status("Downloading the update...")
+        self.updater.install()
+
+    def _on_update_progress(self, percent: int) -> None:
+        self.update_progress.setValue(percent)
+        if percent >= 100:
+            self._set_update_status("Verifying the download...")
+
+    def _on_installer_ready(self, _path) -> None:
+        self._set_update_status("Installing. Waky will close and reopen by itself in a moment.", "ok")
+
+    def _on_install_failed(self, message: str) -> None:
+        self.update_check_btn.setEnabled(True)
+        self.update_install_btn.setEnabled(True)
+        self._update_group.set_row_visible(self._update_progress_row, False)
+        self._set_update_status(message, "bad")
+
+    def _skip_update(self) -> None:
+        if self.updater and self.updater.latest:
+            self.updater.skip(self.updater.latest.version)
+        self._reset_update_ui()
+        self._set_update_status("This version will not be offered again. Automatic checks continue for newer ones.")
+
+    # ---------- Help ----------
     def _help_tab(self) -> None:
-        tab = QWidget()
-        layout = QVBoxLayout(tab)
-        help_text = QLabel(
-            "Use Waky:\n"
-            "1. Click any text field.\n"
-            "2. Hold F8.\n"
-            "3. Speak.\n"
-            "4. Release F8.\n"
-            "5. Text will paste automatically.\n\n"
-            "F9 toggles hands-free mode. Esc cancels/resets."
-        )
-        help_text.setWordWrap(True)
-        help_text.setTextInteractionFlags(Qt.TextSelectableByMouse)
-        layout.addWidget(help_text)
-        layout.addStretch()
-        self.tabs.addTab(tab, "Help")
+        page, lay = self._page()
+        self.help_labels: dict[str, QLabel] = {}
+        use = Group()
+        for key, title in (
+            ("ptt", "Dictate"), ("backup", "Backup key"), ("toggle", "Hands-free"), ("cancel", "Cancel"),
+        ):
+            value = QLabel("")
+            value.setObjectName("caption")
+            self.help_labels[key] = value
+            use.addRow(title, value)
+        self._block(lay, "Your shortcuts", use)
+        tips = Group()
+        for title, text in (
+            ("Rewrite text", "Select text in any app, hold your hotkey, and say what to change."),
+            ("Open Settings", "Hold Shift and click the pill, or use the tray icon."),
+            ("Move the pill", "Hold Alt and drag it."),
+            ("Hide the pill", "Settings > Floating Bar > Visibility, or the tray menu."),
+            ("Paste again", "Tray menu > Paste Last Result."),
+        ):
+            label = QLabel(text)
+            label.setObjectName("caption")
+            label.setWordWrap(True)
+            tips.addRow(title, label)
+        self._block(lay, "Tips", tips)
+        more = Group()
+        tour = QPushButton("Show the welcome tour again")
+        tour.clicked.connect(self.welcome_requested.emit)
+        logs = QPushButton("Open logs folder")
+        logs.clicked.connect(lambda: os.startfile(LOG_DIR))
+        more.addRow(tour, logs)
+        self._block(lay, None, more)
+        self._finish(page, lay, "Help")
 
+    def _refresh_help(self) -> None:
+        hk = self.config_manager.settings.get("hotkeys", {})
+        self.help_labels["ptt"].setText(f"Hold {pretty_combo(hk.get('push_to_talk', ''))}, speak, release")
+        self.help_labels["backup"].setText(f"Hold {pretty_combo(hk.get('push_to_talk_backup', '<f8>'))}")
+        self.help_labels["toggle"].setText(f"Press {pretty_combo(hk.get('toggle_recording', '<f9>'))} to start, again to stop")
+        self.help_labels["cancel"].setText(f"Press {pretty_combo(hk.get('cancel', '<esc>'))}")
+
+    # ---------- Diagnostics ----------
     def _diagnostics_tab(self) -> None:
-        tab = QWidget()
-        layout = QVBoxLayout(tab)
-        controls = FlowLayout(spacing=8)
-        self.hotkey_test = QPushButton("Hotkey Test")
-        self.mic_diag_test = QPushButton("Microphone Test")
-        self.paste_test = QPushButton("Run Paste Test")
-        self.transcription_test = QPushButton("Transcription Test")
+        page, lay = self._page()
+        self.hotkey_test = QPushButton("Hotkey test")
+        self.mic_diag_test = QPushButton("Microphone test")
+        self.paste_test = QPushButton("Paste test")
+        self.transcription_test = QPushButton("Transcription test")
         self.groq_test = QPushButton("Test Groq API")
-        self.force_reset = QPushButton("Force Reset Pipeline")
-        self.command_memory_test = QPushButton("Test Command Rewrite + Memory")
-        self.show_memory_summary = QPushButton("Test Memory Load")
+        self.force_reset = QPushButton("Force reset pipeline")
+        self.command_memory_test = QPushButton("Test command rewrite + memory")
+        self.show_memory_summary = QPushButton("Test memory load")
         self.refresh_diag = QPushButton("Refresh")
         self.open_logs = QPushButton("Open logs folder")
-        self.copy_diag = QPushButton("Copy diagnostics summary")
+        self.copy_diag = QPushButton("Copy summary")
         self.hotkey_test.clicked.connect(self.hotkey_test_requested.emit)
         self.mic_diag_test.clicked.connect(lambda: self._test_microphone(3.0))
         self.paste_test.clicked.connect(self.paste_test_requested.emit)
@@ -848,17 +1078,23 @@ class SettingsWindow(QDialog):
         self.refresh_diag.clicked.connect(self.refresh_diagnostics)
         self.open_logs.clicked.connect(lambda: os.startfile(LOG_DIR))
         self.copy_diag.clicked.connect(self._copy_diagnostics)
-        for button in (self.hotkey_test, self.mic_diag_test, self.paste_test, self.transcription_test, self.groq_test, self.force_reset):
-            controls.addWidget(button)
-        layout.addLayout(controls)
-        extra = FlowLayout(spacing=8)
-        for button in (self.command_memory_test, self.show_memory_summary, self.refresh_diag, self.open_logs, self.copy_diag):
-            extra.addWidget(button)
-        layout.addLayout(extra)
+        tests = FlowLayout(spacing=8)
+        for b in (self.hotkey_test, self.mic_diag_test, self.paste_test, self.transcription_test, self.groq_test, self.command_memory_test, self.show_memory_summary):
+            tests.addWidget(b)
+        g1 = Group()
+        g1.addRow(tests)
+        self._block(lay, "Tests", g1)
+        tools = FlowLayout(spacing=8)
+        for b in (self.refresh_diag, self.open_logs, self.copy_diag, self.force_reset):
+            tools.addWidget(b)
         self.diagnostics_text = QPlainTextEdit()
         self.diagnostics_text.setReadOnly(True)
-        layout.addWidget(self.diagnostics_text)
-        self.tabs.addTab(tab, "Diagnostics")
+        self.diagnostics_text.setFixedHeight(260)
+        g2 = Group()
+        g2.addRow(tools)
+        g2.addRow("Report", self.diagnostics_text)
+        self._block(lay, "Report", g2)
+        self._finish(page, lay, "Diagnostics")
 
     def load_values(self) -> None:
         s = self.config_manager.settings
@@ -869,14 +1105,15 @@ class SettingsWindow(QDialog):
         self.show_floating_bar_on_startup.setChecked(general.get("show_floating_bar_on_startup", True))
         self.sound_effects.setChecked(general["sound_effects"])
         self.always_on_top.setChecked(general["always_on_top"])
-        self.appearance.blockSignals(True)
-        self.appearance.setCurrentIndex(max(0, self.appearance.findData(general.get("appearance", "light"))))
-        self.appearance.blockSignals(False)
+        self.appearance.set_value(general.get("appearance", "light"), animate=False)
         self._fb_load()
         self.ptt_hotkey.setText(s["hotkeys"]["push_to_talk"])
         self.ptt_backup_hotkey.setText(s["hotkeys"].get("push_to_talk_backup", "<f8>"))
         self.toggle_hotkey.setText(s["hotkeys"]["toggle_recording"])
         self.cancel_hotkey.setText(s["hotkeys"]["cancel"])
+        self.paste_last_hotkey.setText(s["hotkeys"].get("paste_last", ""))
+        self.update_auto.setChecked(s.get("updates", {}).get("auto_check", True))
+        self._refresh_help()
         self.trim_silence.setChecked(s["audio"]["silence_trimming"])
         self.keep_ready.setChecked(s["audio"].get("keep_ready", True))
         self.backend.setCurrentIndex(max(0, self.backend.findData(s["transcription"].get("backend", "auto_fallback"))))
@@ -941,7 +1178,7 @@ class SettingsWindow(QDialog):
                 "show_floating_bar_on_startup": self.show_floating_bar_on_startup.isChecked(),
                 "sound_effects": self.sound_effects.isChecked(),
                 "always_on_top": self.always_on_top.isChecked(),
-                "appearance": self.appearance.currentData() or "system",
+                "appearance": self.appearance.value() or "system",
             }
         )
         s.setdefault("floating_bar", {})["alt_drag_only"] = self.alt_drag_only.isChecked()
@@ -951,8 +1188,10 @@ class SettingsWindow(QDialog):
                 "push_to_talk_backup": self.ptt_backup_hotkey.text().strip() or "<f8>",
                 "toggle_recording": self.toggle_hotkey.text().strip() or "<f9>",
                 "cancel": self.cancel_hotkey.text().strip() or "<esc>",
+                "paste_last": self.paste_last_hotkey.text().strip(),
             }
         )
+        s.setdefault("updates", {})["auto_check"] = self.update_auto.isChecked()
         s["audio"]["microphone"] = self.microphone.currentData()
         s["audio"]["silence_trimming"] = self.trim_silence.isChecked()
         s["audio"]["keep_ready"] = self.keep_ready.isChecked()
@@ -1017,7 +1256,9 @@ class SettingsWindow(QDialog):
             self.logger.warning("Could not update startup setting", exc_info=True)
         self.settings_changed.emit()
         self.refresh_diagnostics()
-        QMessageBox.information(self, "Waky", "Settings saved.")
+        self._refresh_help()
+        self.saved_note.setText("✓  Saved")
+        QTimer.singleShot(2200, lambda: self.saved_note.setText(""))
 
     def _refresh_model_status(self, *_args) -> None:
         name = self.model.currentText()
@@ -1523,7 +1764,5 @@ class SettingsWindow(QDialog):
 
     def _update_provider_visibility(self) -> None:
         selected = self.provider.currentText()
-        self.gemini_key.setVisible(selected == "gemini")
-        self.groq_key.setVisible(selected == "groq")
-        self.openai_key.setVisible(selected == "openai")
-        self.openrouter_key.setVisible(selected == "openrouter")
+        for name, row in self._provider_rows.items():
+            self._provider_group.set_row_visible(row, selected == name)

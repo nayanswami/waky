@@ -1,6 +1,6 @@
-; Inno Setup script for Waky. Build with: iscc packaging\waky.iss /DAppVersion=1.0.0
+; Inno Setup script for Waky. Build with: iscc packaging\waky.iss /DAppVersion=1.1.0
 #ifndef AppVersion
-  #define AppVersion "1.0.0"
+  #define AppVersion "1.1.0"
 #endif
 
 #ifndef SourceDir
@@ -26,7 +26,6 @@ Compression=lzma2/max
 SolidCompression=yes
 WizardStyle=modern
 MinVersion=10.0.17763
-AppMutex=Waky.Dictation.Mutex
 ArchitecturesAllowed=x64compatible
 ArchitecturesInstallIn64BitMode=x64compatible
 
@@ -42,6 +41,8 @@ Name: "{autodesktop}\Waky"; Filename: "{app}\Waky.exe"; Tasks: desktopicon
 
 [Run]
 Filename: "{app}\Waky.exe"; Description: "Start Waky and run setup"; Flags: nowait postinstall skipifsilent
+; Silent installs are in-app updates: start the new version again when finished.
+Filename: "{app}\Waky.exe"; Flags: nowait; Check: WizardSilent
 
 [Code]
 procedure StopWaky();

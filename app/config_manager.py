@@ -12,7 +12,7 @@ from .utils import CONFIG_DIR
 
 DEFAULT_SETTINGS: dict[str, Any] = {
     "general": {
-        "launch_on_startup": False,
+        "launch_on_startup": True,
         "start_minimized": False,
         "start_hidden_no_terminal": True,
         "show_floating_bar_on_startup": True,
@@ -21,6 +21,7 @@ DEFAULT_SETTINGS: dict[str, Any] = {
         "theme": "black_white_minimal",
         "paused": False,
         "onboarding_done": False,
+        "onboarding_seen": False,
         "appearance": "light",
     },
     "floating_bar": {
@@ -29,6 +30,7 @@ DEFAULT_SETTINGS: dict[str, Any] = {
         "position": {"x": None, "y": None},
         "remember_position": True,
         "style": "island",
+        "visibility": "always",
         "accent": "#2E62FF",
         "size": 100,
         "position_mode": "preset",
@@ -43,6 +45,7 @@ DEFAULT_SETTINGS: dict[str, Any] = {
         "push_to_talk_backup": "<f8>",
         "toggle_recording": "<f9>",
         "cancel": "<esc>",
+        "paste_last": "",
         "alternatives": ["<ctrl>+<cmd>", "<ctrl>+<shift>+<space>"],
     },
     "audio": {
@@ -117,6 +120,7 @@ DEFAULT_SETTINGS: dict[str, Any] = {
         "command_write_email_enabled": True,
         "command_extend_enabled": True,
     },
+    "updates": {"auto_check": True, "last_check": 0, "skipped": ""},
     "privacy": {
         "save_recordings": False,
         "cloud_cleanup": False,

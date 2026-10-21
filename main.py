@@ -25,7 +25,7 @@ from PySide6.QtWidgets import QApplication
 from app.audio_recorder import AudioRecorder, AudioResult
 from app.clipboard_inserter import ClipboardInserter
 from app.command_processor import process_text as process_voice_commands
-from app import http_pool, ios_theme, llm_engine
+from app import http_pool, ios_theme, llm_engine, sounds, updater as updater_mod
 from app.config_manager import ConfigManager
 from app.diagnostics import DiagnosticsService
 from app.hotkeys import HotkeyManager
@@ -34,6 +34,7 @@ from app.selected_text_rewriter import capture_selected_text_safely, rewrite_sel
 from app.startup_manager import StartupManager
 from app.text_processor import TextProcessor
 from app.transcriber import FasterWhisperTranscriber
+from app.updater import UpdateChecker
 from app.ui_floating_bar import FloatingBar, TrayController
 from app.ui_onboarding import OnboardingWizard
 from app.ui_settings import SettingsWindow
@@ -57,6 +58,7 @@ class AppSignals(QObject):
     push_released = Signal()
     toggle_requested = Signal()
     cancel_hotkey_requested = Signal()
+    paste_last_requested = Signal()
 
 
 class AppState(str, Enum):
@@ -104,6 +106,7 @@ class WakyApp(QObject):
         self.selected_had_clipboard = False
         self.cancel_requested = threading.Event()
         self.toggle_recording = False
+        self.last_result = ""   # kept in memory only, never written to disk
         self.cleaned_up = False
         self.state = AppState.IDLE
         self._state_lock = threading.RLock()
@@ -122,12 +125,15 @@ class WakyApp(QObject):
             self.resume,
             self.restart,
             lambda: self.reset_pipeline("tray force reset"),
-            self.show_floating_bar_from_tray,
             self.reset_floating_bar_position,
-            self.hide_floating_bar_from_tray,
+            self.set_bar_visibility,
+            self.bar.visibility_mode,
             self.quit,
         )
+        self.paste_last_action = self.tray.add_action("Paste Last Result", self.paste_last_result)
+        self.update_action = self.tray.add_action("Update available", self.open_updates, visible=False)
         self.signals.status.connect(self.bar.set_status)
+        self.signals.paste_last_requested.connect(self.paste_last_result)
         self.signals.error.connect(self._show_error)
         self.signals.recording_finished.connect(self._process_audio)
         self.signals.diagnostics_message.connect(self._append_diagnostics)
@@ -150,13 +156,69 @@ class WakyApp(QObject):
             self.toggle_recording_hotkey,
             self.cancel,
             self._hotkey_error,
+            on_paste_last=self.signals.paste_last_requested.emit,
         )
         self.hotkeys.start()
         self._mic_signature = (self.config.get("audio.keep_ready", True), self.config.get("audio.microphone"))
         self._start_background_warmup()
         self.show_floating_bar(startup=True, reset=False)
-        if not self.config.get("general.onboarding_done", False):
+
+        self.updater = UpdateChecker(self.config, self)
+        self.updater.update_found.connect(self._on_update_found)
+        self.updater.installer_ready.connect(self._launch_update_installer)
+        self.updater.install_failed.connect(self._on_update_failed)
+        QTimer.singleShot(25_000, self.updater.auto_check)
+        self._update_timer = QTimer(self)
+        self._update_timer.timeout.connect(self.updater.auto_check)
+        self._update_timer.start(6 * 3600 * 1000)
+
+        # The welcome tour appears once per install. Closing it counts as skipping, so a normal boot only shows the pill.
+        if not self.config.get("general.onboarding_done", False) and not self.config.get("general.onboarding_seen", False):
+            self.config.settings["general"]["onboarding_seen"] = True
+            self.config.save_settings()
             QTimer.singleShot(600, self.open_onboarding)
+
+    @Slot(object)
+    def _on_update_found(self, info) -> None:
+        self.update_action.setText(f"Update to v{info.version}...")
+        self.update_action.setVisible(True)
+        if getattr(self, "_notified_version", "") != info.version:
+            self._notified_version = info.version
+            self.tray.notify("Waky update available", f"Version {info.version} is ready. Click to open the updater.", self.open_updates)
+
+    @Slot(object)
+    def _launch_update_installer(self, path) -> None:
+        self.logger.info("Launching update installer %s", path)
+        try:
+            updater_mod.launch_installer(path)
+        except Exception as exc:
+            self.signals.error.emit(f"Could not start the installer: {exc}")
+            return
+        QTimer.singleShot(500, self.quit)
+
+    @Slot(str)
+    def _on_update_failed(self, message: str) -> None:
+        self.logger.warning("Update failed: %s", message)
+        self.tray.notify("Waky update failed", message)
+
+    @Slot()
+    def open_updates(self) -> None:
+        self.open_settings()
+        if self.settings_window:
+            self.settings_window.tabs.go(self.settings_window.tabs.index_of("Updates"))
+
+    @Slot()
+    def paste_last_result(self) -> None:
+        text = self.last_result
+        if not text:
+            self.tray.notify("Waky", "Nothing to paste yet. Dictate something first.")
+            return
+
+        def work() -> None:
+            time.sleep(0.3)   # let the tray menu close and the previous window regain focus
+            self.inserter.paste_text(text)
+
+        self.executor.submit(work)
 
     @Slot()
     def open_onboarding(self) -> None:
@@ -235,16 +297,13 @@ class WakyApp(QObject):
 
     def show_floating_bar(self, startup: bool = False, reset: bool = False) -> None:
         self.config.settings.setdefault("general", {})["show_floating_bar_on_startup"] = True
-        self.config.settings.setdefault("floating_bar", {})["visible"] = True
-        self.config.settings.setdefault("floating_bar", {})["hidden"] = False
         self.bar.set_status("Idle")
         pos = self.config.settings.get("floating_bar", {})
         saved_position = pos.get("position") if isinstance(pos.get("position"), dict) else {}
         x = saved_position.get("x", pos.get("x"))
         y = saved_position.get("y", pos.get("y"))
         self.bar.ensure_on_screen(x, y, reset=reset, logger=self.logger)
-        self.bar.show()
-        self.bar.raise_()
+        self.bar.present()
         if pos.get("position_mode", "preset") == "remember":
             self.config.settings["floating_bar"].update({"x": self.bar.x(), "y": self.bar.y()})
             self.config.settings["floating_bar"]["position"] = {"x": self.bar.x(), "y": self.bar.y()}
@@ -255,20 +314,16 @@ class WakyApp(QObject):
             self.logger.info("[FLOATING_BAR] reset_position=true")
 
     @Slot()
-    def show_floating_bar_from_tray(self) -> None:
-        self.logger.info("[FLOATING_BAR] show_from_tray=true")
-        self.show_floating_bar(startup=False, reset=False)
-
-    @Slot()
     def reset_floating_bar_position(self) -> None:
         self.show_floating_bar(startup=False, reset=True)
 
-    @Slot()
-    def hide_floating_bar_from_tray(self) -> None:
-        self.config.settings.setdefault("floating_bar", {})["visible"] = False
-        self.config.settings.setdefault("floating_bar", {})["hidden"] = True
+    def set_bar_visibility(self, mode: str) -> None:
+        floating = self.config.settings.setdefault("floating_bar", {})
+        floating["visibility"] = mode
+        floating.pop("hidden", None)
         self.config.save_settings()
-        self.bar.hide()
+        if mode != "hidden":
+            self.bar.set_status("Idle")
 
     def is_paused(self) -> bool:
         return self.config.get("general.paused", False)
@@ -286,6 +341,9 @@ class WakyApp(QObject):
                 return
             self.state = new_state
         self._log_info("[STATE] %s -> %s", old_state.value, new_state.value)
+        cue = {AppState.LISTENING: "start", AppState.STOPPING: "stop", AppState.SUCCESS: "done", AppState.ERROR: "error"}.get(new_state)
+        if cue and self.config.get("general.sound_effects", False):
+            sounds.play(cue)
         ui_status = {
             AppState.IDLE: "Idle",
             AppState.LISTENING: "Listening",
@@ -549,6 +607,7 @@ class WakyApp(QObject):
             self.logger.info("Cleanup finished seconds=%.3f final_chars=%s", time.perf_counter() - clean_started, len(final_text))
             if not final_text:
                 return {"pipeline_id": pipeline_id, "status": "empty_transcript"}
+            self.last_result = final_text
             if self.cancel_requested.is_set():
                 return {"pipeline_id": pipeline_id, "status": "cancelled"}
 
@@ -708,6 +767,8 @@ class WakyApp(QObject):
             self.settings_window.groq_test_requested.connect(self.run_groq_test)
             self.settings_window.hotkey_test_requested.connect(self.run_hotkey_test)
             self.settings_window.force_reset_requested.connect(lambda: self.reset_pipeline("manual diagnostics reset"))
+            self.settings_window.welcome_requested.connect(self.open_onboarding)
+            self.settings_window.set_updater(self.updater)
         self.settings_window.load_values()
         self.settings_window.show()
         self.settings_window.raise_()
@@ -737,8 +798,7 @@ class WakyApp(QObject):
         self.bar.settings = self.config.settings
         self.theme.apply(self.config.get("general.appearance", "system"))
         self.bar.apply_style()
-        self.bar.show()
-        self.bar.raise_()
+        self.bar.present()
 
     def _hotkey_error(self, message: str) -> None:
         self.diagnostics.set_error(message)

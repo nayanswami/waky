@@ -61,9 +61,12 @@ assert cfg.settings["transcription"]["backend"] == "auto_fallback"
 w.hotkey_edit.setText("<ctrl>+<alt>")
 w._next()                      # hotkey -> style
 w._pick_style("line")
-w._next()                      # style -> try
+w._next()                      # style -> behaviour
+w.vis_segment.set_value("active", animate=False)
+w._next()                      # behaviour -> check (applies visibility)
 assert cfg.settings["hotkeys"]["push_to_talk"] == "<ctrl>+<alt>"
 assert cfg.settings["floating_bar"]["style"] == "line"
+assert cfg.settings["floating_bar"]["visibility"] == "active"
 w._next()                      # check -> try
 w._next()                      # try -> done
 assert w.next_button.text() == "Start using Waky"
@@ -78,7 +81,15 @@ w2._next()
 w2._pick_engine(False)
 w2._next()
 assert w2.index == 3, "local mode must skip the key page"
-w2._next(); w2._next(); w2._next(); w2._next(); w2._next()
+for _ in range(6):
+    w2._next()
 assert cfg2.settings["transcription"]["backend"] == "local" and cfg2.settings["general"]["onboarding_done"]
 assert not cfg2.settings["providers"]["groq"]["api_key"]
+
+# closing the window (X / Esc) counts as skipping: never shown again, defaults applied
+cfg3 = ConfigManager(Path(tempfile.mkdtemp()))
+w3 = OnboardingWizard(cfg3)
+w3.reject()
+assert cfg3.settings["general"]["onboarding_done"] is True
+assert cfg3.settings["general"]["launch_on_startup"] is True
 print("phase 4 checks passed")

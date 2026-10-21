@@ -67,9 +67,9 @@ wiz.key_edit.setText("gsk_example_key_value")
 wiz.move(-6000, 0)
 wiz.show()
 settle(wiz, 600)
-for i, name in enumerate(["welcome", "engine", "key", "hotkey", "style", "check", "try", "done"]):
+for i, name in enumerate(["welcome", "engine", "key", "hotkey", "style", "behaviour", "check", "try", "done"]):
     wiz.jump(i)
-    settle(wiz, 1100 if i in (3, 4) else 700)  # let the illustration reach its pressed / listening frame
+    settle(wiz, 900 if i in (0, 3, 8) else 500)
     wiz.grab().save(str(OUT / f"wizard_{name}.png"))
 wiz.hide()
 
@@ -77,11 +77,11 @@ wiz.hide()
 for appearance in ("light", "dark"):
     theme, cfg = make(appearance)
     win = SettingsWindow(cfg, Stub(), Stub(), Stub(), logging.getLogger("preview"))
-    win.resize(1180, 780)
+    win.resize(1000, 740)
     win.move(-6000, 0)
     win.show()
     settle(win, 600)
-    for title in ("General", "Hotkeys", "Floating Bar", "Commands", "Transcription"):
+    for title in ("General", "Hotkeys", "Audio", "Floating Bar", "Commands", "Transcription", "Updates", "Help"):
         idx = win.tabs.index_of(title)
         win.tabs.setCurrentIndex(idx)
         settle(win, 200)
