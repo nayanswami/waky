@@ -1,6 +1,6 @@
-; Inno Setup script for Waky. Build with: iscc packaging\waky.iss /DAppVersion=1.2.0
+; Inno Setup script for Waky. Build with: iscc packaging\waky.iss /DAppVersion=1.2.1
 #ifndef AppVersion
-  #define AppVersion "1.2.0"
+  #define AppVersion "1.2.1"
 #endif
 
 #ifndef SourceDir

@@ -240,6 +240,17 @@ assert light["command_processing"]["command_rewrite_engine"] == "rule_based_only
 assert app_profiles.apply_profile(settings_p, None) is settings_p
 assert app_profiles.foreground_app() is None or app_profiles.foreground_app().exe  # never raises
 
+# ---------- retired Groq models are replaced automatically ----------
+from app import llm_engine
+
+ids = ["whisper-large-v3", "openai/gpt-oss-120b", "openai/gpt-oss-20b", "meta-llama/llama-prompt-guard-2-22m", "qwen/qwen3.8-27b"]
+assert llm_engine.pick_model("llama-3.3-70b-versatile", False, ids) == "openai/gpt-oss-120b"
+assert llm_engine.pick_model("llama-3.1-8b-instant", True, ids) == "openai/gpt-oss-20b"
+assert llm_engine.pick_model("openai/gpt-oss-20b", False, ids) == "openai/gpt-oss-20b", "a model that exists is kept"
+assert llm_engine.pick_model("anything", True, []) == "anything", "unknown availability keeps the setting"
+assert llm_engine.pick_model("old", False, ["whisper-large-v3", "foo/guard-1", "acme/chat-1"]) == "acme/chat-1"
+assert llm_engine._strip_wrapping("<think>hmm</think>Hello there") == "Hello there"
+
 # ---------- pill visibility modes ----------
 from app.ui_floating_bar import FloatingBar
 

@@ -4,6 +4,7 @@ import http.client
 import json
 import logging
 import os
+import re
 import time
 from dataclasses import dataclass, field
 from typing import Any, Sequence
@@ -16,7 +17,7 @@ from . import http_pool
 LOGGER = logging.getLogger("waky")
 
 GROQ_CHAT_URL = "https://api.groq.com/openai/v1/chat/completions"
-DEFAULT_MODEL = "llama-3.3-70b-versatile"
+DEFAULT_MODEL = "openai/gpt-oss-120b"
 # Groq sits behind Cloudflare, which rejects the default "Python-urllib" agent with HTTP 403.
 USER_AGENT = "Waky/1.0"
 
@@ -40,6 +41,10 @@ Output rules:
 
 class LLMError(RuntimeError):
     """Rewrite request failed; caller should fall back to the rule-based engine."""
+
+
+class ModelUnavailable(LLMError):
+    """The configured model no longer exists for this key."""
 
 
 class LLMRateLimited(LLMError):
@@ -90,7 +95,38 @@ def get_api_key(settings: dict | None) -> str:
     return os.environ.get("GROQ_API_KEY", "").strip()
 
 
-FAST_MODEL = "llama-3.1-8b-instant"
+FAST_MODEL = "openai/gpt-oss-20b"
+
+# Groq retires models from time to time. Waky asks Groq what the key can use and falls back to the best match,
+# so a retired model never silently turns every rewrite into the rule-based fallback.
+PREFERRED_TEXT = ("openai/gpt-oss-120b", "llama-3.3-70b-versatile", "qwen/qwen3.8-27b", "openai/gpt-oss-20b", "llama-3.1-8b-instant")
+PREFERRED_FAST = ("openai/gpt-oss-20b", "llama-3.1-8b-instant", "openai/gpt-oss-120b", "llama-3.3-70b-versatile", "qwen/qwen3.8-27b")
+NOT_CHAT = ("whisper", "orpheus", "guard", "safeguard", "allam", "tts", "embed")
+_MODELS: dict[str, Any] = {"ids": None, "at": 0.0}
+
+
+def available_models(api_key: str, force: bool = False) -> list[str]:
+    if not force and _MODELS["ids"] is not None and time.time() - _MODELS["at"] < 6 * 3600:
+        return _MODELS["ids"]
+    request = Request("https://api.groq.com/openai/v1/models", headers={"Authorization": f"Bearer {api_key}", "User-Agent": USER_AGENT})
+    try:
+        with urlopen(request, timeout=8) as response:
+            ids = [str(m.get("id", "")) for m in json.loads(response.read().decode("utf-8")).get("data", [])]
+    except Exception as exc:
+        LOGGER.info("[LLM] could not list models: %s", exc)
+        return _MODELS["ids"] or []
+    _MODELS.update({"ids": ids, "at": time.time()})
+    return ids
+
+
+def pick_model(configured: str, fast: bool, ids: list[str]) -> str:
+    if not ids or configured in ids:
+        return configured
+    for name in (PREFERRED_FAST if fast else PREFERRED_TEXT):
+        if name in ids:
+            return name
+    chat_ids = [i for i in ids if not any(bad in i.lower() for bad in NOT_CHAT)]
+    return chat_ids[0] if chat_ids else configured
 
 
 def get_model(settings: dict | None, fast: bool = False) -> str:
@@ -133,7 +169,7 @@ def build_user_prompt(req: RewriteRequest) -> str:
 
 
 def _strip_wrapping(text: str) -> str:
-    result = text.strip()
+    result = re.sub(r"(?is)<think>.*?</think>", "", text).strip()
     if len(result) >= 2 and result[0] == result[-1] and result[0] in "\"'":
         result = result[1:-1].strip()
     if result.startswith("```") and result.endswith("```"):
@@ -144,7 +180,10 @@ def _strip_wrapping(text: str) -> str:
 
 def chat(api_key: str, model: str, messages: list[dict[str, str]], temperature: float = 0.3, timeout: float = 20) -> str:
     """One Groq chat completion over a kept-alive connection. Raises LLMRateLimited on 429, LLMError otherwise."""
-    body = json.dumps({"model": model, "temperature": temperature, "messages": messages}).encode("utf-8")
+    payload_in: dict[str, Any] = {"model": model, "temperature": temperature, "messages": messages}
+    if model.startswith("openai/gpt-oss"):
+        payload_in["reasoning_effort"] = "low"   # rewriting needs speed, not long reasoning
+    body = json.dumps(payload_in).encode("utf-8")
     headers = {"Authorization": f"Bearer {api_key}", "Content-Type": "application/json", "User-Agent": USER_AGENT}
     last: Exception | None = None
     for attempt in range(2):
@@ -170,6 +209,8 @@ def chat(api_key: str, model: str, messages: list[dict[str, str]], temperature: 
             STATUS.last_error = "rate limited"
             raise LLMRateLimited(retry_after)
         STATUS.last_error = f"HTTP {status}"
+        if status == 404 and "model" in text.lower():
+            raise ModelUnavailable(f"model {model} is not available: {text}")
         if status in (401, 403):
             raise LLMError(f"Groq rejected the request (HTTP {status}). Check your API key. {text}")
         last = RuntimeError(f"HTTP {status} {text}")
@@ -188,17 +229,20 @@ def rewrite(req: RewriteRequest, settings: dict | None) -> str:
         raise LLMRateLimited(STATUS.cooldown_until - time.time())
     options = (settings or {}).get("command_processing", {}) if isinstance(settings, dict) else {}
     fast = not req.modes and not req.selected_text.strip()
-    model = get_model(settings, fast)
+    configured = get_model(settings, fast)
+    model = pick_model(configured, fast, available_models(api_key))
     LOGGER.info("[LLM] model=%s modes=%s selected=%s", model, [m.key for m in req.modes], bool(req.selected_text))
-    text = chat(
-        api_key,
-        model,
-        [
-            {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": build_user_prompt(req)},
-        ],
-        temperature=float(options.get("llm_temperature", 0.3) or 0.3),
-    )
+    messages = [
+        {"role": "system", "content": SYSTEM_PROMPT},
+        {"role": "user", "content": build_user_prompt(req)},
+    ]
+    temperature = float(options.get("llm_temperature", 0.3) or 0.3)
+    try:
+        text = chat(api_key, model, messages, temperature=temperature)
+    except ModelUnavailable:
+        model = pick_model(configured, fast, available_models(api_key, force=True))
+        LOGGER.info("[LLM] model was retired; retrying with %s", model)
+        text = chat(api_key, model, messages, temperature=temperature)
     result = _strip_wrapping(text)
     if not result:
         raise LLMError("empty response from model")
