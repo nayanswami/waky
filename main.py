@@ -28,6 +28,7 @@ from app.command_processor import process_text as process_voice_commands
 from app import app_profiles, http_pool, ios_theme, llm_engine, sounds, updater as updater_mod
 from app.config_manager import ConfigManager
 from app.diagnostics import DiagnosticsService
+from app import local_memory
 from app.history import History
 from app.hotkeys import HotkeyManager
 from app.logger_setup import setup_logging
@@ -250,6 +251,7 @@ class WakyApp(QObject):
         """Get everything slow out of the way before the first dictation: mic stream, TLS to Groq, local model."""
         def work() -> None:
             try:
+                local_memory.ensure_memory_files()   # also removes the old built-in seed rules once
                 if self.config.get("audio.keep_ready", True):
                     self.recorder.arm()
                 key = llm_engine.get_api_key(self.config.settings)

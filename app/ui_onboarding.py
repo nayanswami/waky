@@ -1,10 +1,10 @@
-"""First-run setup assistant, laid out like a macOS app's welcome window: step rail on the left, one calm page at a time on the right."""
+"""First-run setup assistant: airy two-tone headlines with inline chips, soft white cards, one calm page at a time."""
 from __future__ import annotations
 
 import threading
 
-from PySide6.QtCore import QEasingCurve, QPointF, QRectF, Qt, QTimer, QUrl, QVariantAnimation, Signal
-from PySide6.QtGui import QColor, QDesktopServices, QPainter, QPainterPath, QPen, QPixmap
+from PySide6.QtCore import Qt, QTimer, QUrl, Signal
+from PySide6.QtGui import QColor, QDesktopServices
 from PySide6.QtWidgets import (
     QColorDialog,
     QDialog,
@@ -21,140 +21,32 @@ from PySide6.QtWidgets import (
 )
 
 from . import hotkeys, ios_theme, llm_engine, pill_styles, system_check
-from .ios_widgets import AnimatedStack, Group, IOSSwitch, KeyCaps, PillPreview, Segmented, StepRail, StyleCard, glyph_pixmap
+from .ios_widgets import AnimatedStack, Group, IOSSwitch, KeyCaps, PillPreview, Segmented, StyleCard
+from .onboarding_kit import (
+    INK,
+    WIZARD_QSS,
+    Card,
+    Headline,
+    PillChip,
+    PlanCard,
+    ProgressLine,
+    ToggleChip,
+    tile_label,
+)
 from .ui_widgets import HotkeyEdit
-from .utils import asset_path
 
 GROQ_KEYS_URL = "https://console.groq.com/keys"
 SWATCHES = (("#2E62FF", "Waky blue"), ("#32ADE6", "Sky"), ("#5E5CE6", "Indigo"), ("#FF375F", "Pink"), ("#FF9F0A", "Orange"), ("#30D158", "Green"), ("#FFFFFF", "White"))
 STEP_LABELS = ["Welcome", "Engine", "Groq key", "Hotkey", "Pill", "Behaviour", "Check", "Try it", "All set"]
 
-
-class ChoiceCard(QFrame):
-    """A selectable card (radio behaviour handled by the wizard)."""
-
-    chosen = Signal()
-
-    def __init__(self, title: str, body: str, badge: str = "", parent=None) -> None:
-        super().__init__(parent)
-        self.setObjectName("styleCard")
-        self.setCursor(Qt.PointingHandCursor)
-        self._checked = False
-        lay = QVBoxLayout(self)
-        lay.setContentsMargins(16, 12, 16, 12)
-        lay.setSpacing(3)
-        top = QHBoxLayout()
-        head = QLabel(title)
-        head.setStyleSheet("font-size:14px;font-weight:600;")
-        top.addWidget(head)
-        if badge:
-            tag = QLabel(badge)
-            tag.setObjectName("ok")
-            top.addWidget(tag)
-        top.addStretch()
-        lay.addLayout(top)
-        text = QLabel(body)
-        text.setObjectName("sub")
-        text.setWordWrap(True)
-        lay.addWidget(text)
-        self.setProperty("selected", False)
-
-    def isChecked(self) -> bool:
-        return self._checked
-
-    def setChecked(self, on: bool) -> None:
-        self._checked = on
-        self.setProperty("selected", on)
-        self.style().unpolish(self)
-        self.style().polish(self)
-
-    def mousePressEvent(self, e) -> None:
-        self.chosen.emit()
-        super().mousePressEvent(e)
+MIC, PEN, LOCK, CLOUD, DEVICE, KEY, KEYBOARD, CHECK, SYNC = (
+    "", "", "", "", "", "", "", "", "",
+)
 
 
-class FeatureRow(QWidget):
-    """Icon tile + title + one line of text (macOS 'What's New' style)."""
-
-    def __init__(self, glyph: str, color: str, title: str, text: str, parent=None) -> None:
-        super().__init__(parent)
-        lay = QHBoxLayout(self)
-        lay.setContentsMargins(0, 4, 0, 4)
-        lay.setSpacing(14)
-        icon = QLabel()
-        icon.setPixmap(glyph_pixmap(glyph, color, 36))
-        icon.setFixedSize(36, 36)
-        lay.addWidget(icon, 0, Qt.AlignTop)
-        col = QVBoxLayout()
-        col.setSpacing(1)
-        head = QLabel(title)
-        head.setStyleSheet("font-weight:600;font-size:14px;")
-        body = QLabel(text)
-        body.setObjectName("sub")
-        body.setWordWrap(True)
-        col.addWidget(head)
-        col.addWidget(body)
-        lay.addLayout(col, 1)
-
-
-class PopBadge(QWidget):
-    """The app icon, or a success tick, that pops in with a small spring whenever its page appears."""
-
-    def __init__(self, kind: str = "app", size: int = 84, parent=None) -> None:
-        super().__init__(parent)
-        self.kind = kind
-        self._size = size
-        self._scale = 1.0
-        self.setFixedSize(size + 24, size + 24)
-        self._pix = QPixmap(str(asset_path("waky-icon.png"))) if kind == "app" else QPixmap()
-        self._anim = QVariantAnimation(self)
-        self._anim.setDuration(520)
-        self._anim.setStartValue(0.72)
-        self._anim.setEndValue(1.0)
-        self._anim.setEasingCurve(QEasingCurve.OutBack)
-        self._anim.valueChanged.connect(self._on_value)
-
-    def _on_value(self, v) -> None:
-        self._scale = float(v)
-        self.update()
-
+class _NoPop:
     def pop(self) -> None:
-        self._anim.stop()
-        self._anim.start()
-
-    def paintEvent(self, _e) -> None:
-        pal = ios_theme.current()
-        p = QPainter(self)
-        p.setRenderHint(QPainter.Antialiasing)
-        p.setRenderHint(QPainter.SmoothPixmapTransform)
-        s = self._size * self._scale
-        x = (self.width() - s) / 2
-        y = (self.height() - s) / 2
-        p.setOpacity(min(1.0, 0.3 + self._scale * 0.7))
-        if self.kind == "app":
-            for grow, alpha in ((10, 6), (7, 8), (4, 10), (2, 12)):   # soft layered shadow
-                path = QPainterPath()
-                path.addRoundedRect(QRectF(x - grow / 2, y + 6 - grow / 2, s + grow, s + grow), s * 0.225 + grow / 2, s * 0.225 + grow / 2)
-                p.fillPath(path, QColor(0, 0, 0, alpha if not pal.is_dark else alpha * 3))
-            if not self._pix.isNull():
-                p.drawPixmap(QRectF(x, y, s, s), self._pix, QRectF(self._pix.rect()))
-        else:
-            p.setPen(Qt.NoPen)
-            for grow, alpha in ((10, 6), (6, 9), (3, 12)):
-                p.setBrush(QColor(0, 0, 0, alpha))
-                p.drawEllipse(QRectF(x - grow / 2, y + 5 - grow / 2, s + grow, s + grow))
-            p.setBrush(QColor(pal.success))
-            p.drawEllipse(QRectF(x, y, s, s))
-            pen = QPen(QColor("#FFFFFF"), s * 0.075)
-            pen.setCapStyle(Qt.RoundCap)
-            pen.setJoinStyle(Qt.RoundJoin)
-            p.setPen(pen)
-            cx, cy = x + s / 2, y + s / 2
-            p.drawPolyline([
-                QPointF(cx - s * 0.2, cy + s * 0.01),
-                QPointF(cx - s * 0.05, cy + s * 0.16),
-                QPointF(cx + s * 0.22, cy - s * 0.14),
-            ])
+        pass
 
 
 class OnboardingWizard(QDialog):
@@ -166,79 +58,65 @@ class OnboardingWizard(QDialog):
     def __init__(self, config_manager, parent=None) -> None:
         super().__init__(parent)
         self.config_manager = config_manager
+        self.setObjectName("wizard")
         self.setWindowTitle("Welcome to Waky")
-        self.setFixedSize(820, 660)
+        self.setFixedSize(900, 720)
+        self.setStyleSheet(WIZARD_QSS)
         fb = config_manager.settings.get("floating_bar", {})
         self.cloud = True
         self._closing = False
         self.style_key = pill_styles.get_style(fb.get("style")).key
         self.accent = str(fb.get("accent") or pill_styles.DEFAULT_ACCENT)
         self.size_pct = int(fb.get("size", 100))
+        self.welcome_badge = _NoPop()
+        self.done_badge = _NoPop()
 
-        outer = QHBoxLayout(self)
-        outer.setContentsMargins(0, 0, 0, 0)
-        outer.setSpacing(0)
+        root = QVBoxLayout(self)
+        root.setContentsMargins(60, 30, 60, 0)
+        root.setSpacing(0)
 
-        # ---- left rail ----
-        rail = QFrame()
-        rail.setObjectName("sideFrame")
-        rail.setFixedWidth(210)
-        rl = QVBoxLayout(rail)
-        rl.setContentsMargins(22, 26, 18, 20)
-        rl.setSpacing(0)
-        brand = QHBoxLayout()
-        brand.setSpacing(10)
-        logo = QLabel()
-        logo.setFixedSize(30, 30)
-        pix = QPixmap(str(asset_path("waky-icon.png")))
-        if not pix.isNull():
-            logo.setPixmap(pix.scaled(30, 30, Qt.KeepAspectRatio, Qt.SmoothTransformation))
-        brand_text = QLabel("Waky")
-        brand_text.setObjectName("settingsTitle")
-        brand.addWidget(logo)
-        brand.addWidget(brand_text)
-        brand.addStretch()
-        rl.addLayout(brand)
-        rl.addSpacing(26)
-        self.rail = StepRail(STEP_LABELS)
-        rl.addWidget(self.rail)
-        rl.addStretch()
+        # ---- top bar: tag, step counter, skip ----
+        top = QHBoxLayout()
+        top.setSpacing(12)
+        tag = QLabel("SETUP")
+        tag.setObjectName("tag")
         self.step_label = QLabel("")
-        self.step_label.setObjectName("caption")
-        rl.addWidget(self.step_label)
-        outer.addWidget(rail)
+        self.step_label.setObjectName("step")
+        self.skip_button = QPushButton("Skip setup  →")
+        self.skip_button.setObjectName("plain")
+        self.skip_button.setCursor(Qt.PointingHandCursor)
+        self.skip_button.clicked.connect(self._skip)
+        top.addWidget(tag)
+        top.addWidget(self.step_label)
+        top.addStretch()
+        top.addWidget(self.skip_button)
+        root.addLayout(top)
+        root.addSpacing(12)
+        self.progress = ProgressLine(len(STEP_LABELS))
+        root.addWidget(self.progress)
+        root.addSpacing(26)
 
-        # ---- right side ----
-        right = QVBoxLayout()
-        right.setContentsMargins(0, 0, 0, 0)
-        right.setSpacing(0)
         self.stack = AnimatedStack()
-        holder = QVBoxLayout()
-        holder.setContentsMargins(40, 34, 40, 8)
-        holder.addWidget(self.stack)
-        right.addLayout(holder, 1)
+        root.addWidget(self.stack, 1)
 
         footer = QFrame()
         footer.setObjectName("footer")
         nav = QHBoxLayout(footer)
-        nav.setContentsMargins(40, 12, 40, 14)
-        nav.setSpacing(8)
-        self.skip_button = QPushButton("Skip setup")
-        self.skip_button.setObjectName("plain")
-        self.skip_button.clicked.connect(self._skip)
+        nav.setContentsMargins(0, 8, 0, 26)
+        nav.setSpacing(10)
         self.back_button = QPushButton("Back")
         self.next_button = QPushButton("Continue")
-        self.next_button.setObjectName("primary")
-        self.next_button.setMinimumWidth(120)
+        self.next_button.setObjectName("ink")
+        self.next_button.setMinimumWidth(150)
         self.next_button.setDefault(True)
+        self.next_button.setCursor(Qt.PointingHandCursor)
+        self.back_button.setCursor(Qt.PointingHandCursor)
         self.back_button.clicked.connect(self._back)
         self.next_button.clicked.connect(self._next)
-        nav.addWidget(self.skip_button)
         nav.addStretch()
         nav.addWidget(self.back_button)
         nav.addWidget(self.next_button)
-        right.addWidget(footer)
-        outer.addLayout(right, 1)
+        root.addWidget(footer)
 
         self._verify_timer = QTimer(self)
         self._verify_timer.setSingleShot(True)
@@ -254,60 +132,83 @@ class OnboardingWizard(QDialog):
         self._checks_done.connect(self._on_checks)
         self.index = 0
         self._update_nav()
-        self.welcome_badge.pop()
+
+    # ---------- page scaffolding ----------
+
+    def _page(self, headline: list, subtitle: str = "") -> tuple[QWidget, QVBoxLayout]:
+        page = QWidget()
+        layout = QVBoxLayout(page)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+        layout.addWidget(Headline(headline))
+        if subtitle:
+            layout.addSpacing(10)
+            sub = QLabel(subtitle)
+            sub.setObjectName("sub")
+            sub.setWordWrap(True)
+            layout.addWidget(sub)
+        layout.addSpacing(22)
+        return page, layout
+
+    def _caption(self, text: str) -> QLabel:
+        label = QLabel(text)
+        label.setObjectName("cap")
+        label.setWordWrap(True)
+        return label
 
     # ---------- pages ----------
 
-    def _page(self, title: str, subtitle: str) -> tuple[QWidget, QVBoxLayout]:
-        page = QWidget()
-        layout = QVBoxLayout(page)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(8)
-        heading = QLabel(title)
-        heading.setObjectName("title")
-        sub = QLabel(subtitle)
-        sub.setObjectName("sub")
-        sub.setWordWrap(True)
-        layout.addWidget(heading)
-        layout.addWidget(sub)
-        layout.addSpacing(10)
-        return page, layout
-
     def _welcome_page(self) -> QWidget:
-        page = QWidget()
-        layout = QVBoxLayout(page)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(8)
-        self.welcome_badge = PopBadge("app", 84)
-        layout.addWidget(self.welcome_badge, 0, Qt.AlignLeft)
-        heading = QLabel("Welcome to Waky")
-        heading.setObjectName("title")
-        sub = QLabel("Hold a key, speak naturally, and finished text appears in any app. Setup takes about two minutes.")
-        sub.setObjectName("sub")
-        sub.setWordWrap(True)
-        layout.addWidget(heading)
-        layout.addWidget(sub)
-        layout.addSpacing(16)
-        layout.addWidget(FeatureRow("", "#FF3B30", "Dictate anywhere", "Hold your hotkey in any text field, speak, release. The words are pasted for you."))
-        layout.addWidget(FeatureRow("", "#5E5CE6", "Writes like you", "Filler words and Hinglish turn into clean text. Say \"write email\" or \"bullet points\" to reshape it."))
-        layout.addWidget(FeatureRow("", "#30B0C7", "Private by design", "Your own Groq key stays in Windows Credential Manager. Audio is never saved."))
+        page, layout = self._page(
+            [("g", "Say it messy."), ("k", "Get it"), ("c", tile_label(MIC, "#FFFFFF", "#FF3B30", 50)), ("k", "written.")],
+            "Hold a key, speak naturally, and finished text appears in any app. Setup takes about two minutes.",
+        )
+        row = QHBoxLayout()
+        row.setSpacing(16)
+        for glyph, title, text in (
+            (MIC, "Dictate anywhere", "Hold your hotkey in any text field, speak, release."),
+            (PEN, "Writes like you", "Fillers and Hinglish become clean text in your words."),
+            (LOCK, "Private by design", "Your own Groq key. Audio is never saved."),
+        ):
+            card = Card()
+            cl = QVBoxLayout(card)
+            cl.setContentsMargins(20, 20, 20, 20)
+            cl.setSpacing(12)
+            cl.addWidget(tile_label(glyph, "#18181B", "#FFFFFF", 42, shadow=False), 0, Qt.AlignLeft)
+            name = QLabel(title)
+            name.setStyleSheet("font-size:16px;font-weight:600;")
+            cl.addWidget(name)
+            body = QLabel(text)
+            body.setStyleSheet("font-size:13px;color:#7C7C83;")
+            body.setWordWrap(True)
+            cl.addWidget(body)
+            cl.addStretch()
+            row.addWidget(card, 1)
+        layout.addLayout(row)
         layout.addStretch()
         return page
 
     def _engine_page(self) -> QWidget:
-        page, layout = self._page("How should Waky listen?", "You can change this any time in Settings.")
-        self.cloud_radio = ChoiceCard(
-            "Groq cloud", "Fast and accurate with smart rewriting: emails, bullet points, your own modes. Needs your own free Groq key.", "Recommended"
+        page, layout = self._page(
+            [("g", "Pick how Waky"), ("c", tile_label(CLOUD, "#FFFFFF", "#2E62FF", 50)), ("k", "listens.")],
+            "You can change this any time in Settings.",
         )
-        self.local_radio = ChoiceCard(
-            "Local only", "Speech to text runs on this PC with Whisper. Needs a one-time model download (75 MB to 3 GB). Rewriting stays basic.", ""
+        row = QHBoxLayout()
+        row.setSpacing(16)
+        self.cloud_radio = PlanCard(
+            CLOUD, "Groq cloud", "free key", "Choose cloud",
+            ["Fast and accurate speech to text", "Smart rewriting and your own modes", "Needs your own free Groq key"],
+        )
+        self.local_radio = PlanCard(
+            DEVICE, "Local only", "on this PC", "Choose local",
+            ["Runs fully on this PC, offline", "One-time model download (75 MB to 3 GB)", "Rewriting stays basic"],
         )
         self.cloud_radio.setChecked(True)
         self.cloud_radio.chosen.connect(lambda: self._pick_engine(True))
         self.local_radio.chosen.connect(lambda: self._pick_engine(False))
-        layout.addWidget(self.cloud_radio)
-        layout.addSpacing(4)
-        layout.addWidget(self.local_radio)
+        row.addWidget(self.cloud_radio, 1)
+        row.addWidget(self.local_radio, 1)
+        layout.addLayout(row)
         layout.addStretch()
         return page
 
@@ -318,36 +219,43 @@ class OnboardingWizard(QDialog):
         self._update_nav()
 
     def _key_page(self) -> QWidget:
-        page, layout = self._page("Connect your Groq key", "Groq runs the speech and rewriting models. The free tier is enough to start.")
-        steps = Group()
+        page, layout = self._page(
+            [("g", "Connect your"), ("c", tile_label(KEY, "#FFFFFF", "#FF9F0A", 50)), ("k", "Groq key.")],
+            "Groq runs the speech and rewriting models. The free tier is enough to start.",
+        )
+        card = Card()
+        cl = QVBoxLayout(card)
+        cl.setContentsMargins(22, 18, 22, 18)
+        cl.setSpacing(12)
         for number, text in (
             ("1", "Open the Groq console and sign in. Google sign-in works."),
             ("2", "Click <b>Create API Key</b> and name it <b>Waky</b>."),
             ("3", "Copy the key (it starts with <b>gsk_</b>) and paste it below."),
         ):
-            row = QHBoxLayout()
-            row.setContentsMargins(0, 0, 0, 0)
+            line = QHBoxLayout()
+            line.setSpacing(12)
             badge = QLabel(number)
-            badge.setFixedSize(22, 22)
+            badge.setFixedSize(24, 24)
             badge.setAlignment(Qt.AlignCenter)
-            badge.setStyleSheet(f"background:{ios_theme.current().accent_fill};color:{ios_theme.current().accent};border-radius:11px;font-weight:700;")
+            badge.setStyleSheet(f"background:{INK};color:#fff;border-radius:12px;font-weight:700;font-size:12px;")
             label = QLabel(text)
             label.setWordWrap(True)
-            row.addWidget(badge)
-            row.addSpacing(8)
-            row.addWidget(label, 1)
-            steps.addRow(row)
-        open_button = QPushButton("Open Groq console")
+            line.addWidget(badge)
+            line.addWidget(label, 1)
+            cl.addLayout(line)
+        open_button = QPushButton("Open Groq console  ↗")
+        open_button.setCursor(Qt.PointingHandCursor)
         open_button.clicked.connect(lambda: QDesktopServices.openUrl(QUrl(GROQ_KEYS_URL)))
-        steps.addRow(open_button)
-        layout.addWidget(steps)
-        layout.addSpacing(8)
+        cl.addWidget(open_button, 0, Qt.AlignLeft)
+        layout.addWidget(card)
+        layout.addSpacing(16)
         self.key_edit = QLineEdit()
         self.key_edit.setEchoMode(QLineEdit.Password)
         self.key_edit.setPlaceholderText("Paste your key here (gsk_...)")
-        self.key_edit.setMinimumHeight(34)
+        self.key_edit.setMinimumHeight(46)
         self.key_edit.textChanged.connect(self._key_changed)
         layout.addWidget(self.key_edit)
+        layout.addSpacing(10)
         row = QHBoxLayout()
         self.verify_button = QPushButton("Verify key")
         self.verify_button.clicked.connect(self._verify)
@@ -356,10 +264,8 @@ class OnboardingWizard(QDialog):
         row.addWidget(self.verify_button)
         row.addWidget(self.verify_label, 1)
         layout.addLayout(row)
-        privacy = QLabel("Your key is saved in Windows Credential Manager on this PC and sent only to Groq.")
-        privacy.setObjectName("caption")
-        privacy.setWordWrap(True)
-        layout.addWidget(privacy)
+        layout.addSpacing(6)
+        layout.addWidget(self._caption("Your key is saved in Windows Credential Manager on this PC and sent only to Groq."))
         layout.addStretch()
         return page
 
@@ -374,22 +280,28 @@ class OnboardingWizard(QDialog):
             self._verify()
 
     def _hotkey_page(self) -> QWidget:
-        page, layout = self._page("Choose your hotkey", "Hold it while you speak, release to paste.")
+        page, layout = self._page(
+            [("g", "Choose the keys"), ("k", "you hold to talk.")],
+            "Hold them while you speak, release to paste.",
+        )
+        card = Card()
+        cl = QVBoxLayout(card)
+        cl.setContentsMargins(22, 14, 22, 20)
+        cl.setSpacing(6)
         self.keycaps = KeyCaps(["Ctrl", "Win"])
-        layout.addWidget(self.keycaps)
+        cl.addWidget(self.keycaps)
         self.hotkey_edit = HotkeyEdit()
         self.hotkey_edit.setObjectName("hotkeyBig")
         self.hotkey_edit.setText(self.config_manager.get("hotkeys.push_to_talk", "<ctrl>+<win>"))
-        self.hotkey_edit.setMinimumHeight(52)
+        self.hotkey_edit.setMinimumHeight(60)
         self.hotkey_edit.textChanged.connect(lambda _t: self._sync_keys())
-        layout.addWidget(self.hotkey_edit)
-        hint = QLabel(
+        cl.addWidget(self.hotkey_edit)
+        layout.addWidget(card)
+        layout.addSpacing(14)
+        layout.addWidget(self._caption(
             "Click the box, then press the keys you want together. Ctrl + Win is the default and F8 always works as a backup. "
             "You can also use your mouse's middle or side button."
-        )
-        hint.setObjectName("caption")
-        hint.setWordWrap(True)
-        layout.addWidget(hint)
+        ))
         layout.addStretch()
         self._sync_keys()
         return page
@@ -400,12 +312,13 @@ class OnboardingWizard(QDialog):
             self.keycaps.set_keys(hotkeys.pretty_combo(raw).split(" + "))
 
     def _style_page(self) -> QWidget:
-        page, layout = self._page("Make the pill yours", "A tiny always-on-top indicator. Everything here can be changed later in Settings.")
+        page, layout = self._page([("g", "Make the"), ("c", PillChip(self.accent)), ("k", "pill yours.")], "")
         self.preview = PillPreview(self.style_key, self.accent, 1.0)
-        self.preview.setFixedHeight(78)
+        self.preview.setFixedHeight(84)
         layout.addWidget(self.preview)
+        layout.addSpacing(14)
         grid = QGridLayout()
-        grid.setSpacing(10)
+        grid.setSpacing(12)
         self.style_radios: dict[str, StyleCard] = {}
         for i, style in enumerate(pill_styles.STYLES.values()):
             card = StyleCard(style, self.accent)
@@ -414,8 +327,9 @@ class OnboardingWizard(QDialog):
             grid.addWidget(card, i // 3, i % 3)
             self.style_radios[style.key] = card
         layout.addLayout(grid)
+        layout.addSpacing(14)
         row = QHBoxLayout()
-        row.setSpacing(7)
+        row.setSpacing(8)
         self.swatch_buttons: list[tuple[str, QPushButton]] = []
         for hexv, name in SWATCHES:
             b = QPushButton()
@@ -423,7 +337,8 @@ class OnboardingWizard(QDialog):
             b.setCheckable(True)
             b.setToolTip(name)
             b.setCursor(Qt.PointingHandCursor)
-            b.setStyleSheet(f"QPushButton#swatch {{ background: {hexv}; }}")
+            b.setFixedSize(26, 26)
+            b.setStyleSheet(f"QPushButton#swatch {{ background: {hexv}; border-radius: 13px; padding: 0; min-height: 0; }}")
             b.clicked.connect(lambda _c=False, h=hexv: self._pick_accent(h))
             row.addWidget(b)
             self.swatch_buttons.append((hexv, b))
@@ -431,9 +346,9 @@ class OnboardingWizard(QDialog):
         more.setObjectName("link")
         more.clicked.connect(self._custom_accent)
         row.addWidget(more)
-        row.addSpacing(14)
+        row.addSpacing(18)
         size_label = QLabel("Size")
-        size_label.setObjectName("caption")
+        size_label.setObjectName("cap")
         row.addWidget(size_label)
         self.size_slider = QSlider(Qt.Horizontal)
         self.size_slider.setRange(60, 220)
@@ -478,59 +393,71 @@ class OnboardingWizard(QDialog):
         fb.update({"style": self.style_key, "accent": self.accent, "size": self.size_pct})
         self.settings_applied.emit()  # the real pill on screen follows along
 
+    def _choice(self, title: str, control: QWidget, hint: str) -> QVBoxLayout:
+        box = QVBoxLayout()
+        box.setSpacing(6)
+        head = QLabel(title)
+        head.setStyleSheet("font-weight:600;font-size:14px;")
+        box.addWidget(head)
+        box.addWidget(control, 0, Qt.AlignLeft)
+        box.addWidget(self._caption(hint))
+        return box
+
     def _behaviour_page(self) -> QWidget:
-        page, layout = self._page("How should Waky behave?", "Set it once and forget it. Every option can be changed later.")
+        page, layout = self._page([("g", "Set it once."), ("c", ToggleChip()), ("k", "Then forget it.")], "")
         s = self.config_manager.settings
         start = s.get("floating_bar", {}).get("visibility", "always")
-
-        vis = Group()
-        self.vis_segment = Segmented([("always", "Always"), ("active", "While dictating"), ("hidden", "Hidden")], start if start in ("always", "active", "hidden") else "always")
-        vis.addRow("Show the pill", self.vis_segment, hint="While dictating: it fades in only when you hold the hotkey.")
-        layout.addWidget(vis)
-        layout.addSpacing(8)
-
-        how = Group()
         language = s.get("transcription", {}).get("language_mode", "english")
-        self.language_seg = Segmented([("english", "English"), ("hinglish", "Hinglish"), ("hindi", "Hindi")], language if language in ("english", "hinglish", "hindi") else "english")
-        how.addRow("I mostly speak", self.language_seg, hint="Hinglish means Hindi and English mixed in one sentence.")
         style = s.get("output", {}).get("writing_style", "clean")
-        self.style_seg = Segmented([("exact", "Exact words"), ("clean", "Clean"), ("rewrite", "Rewrite")], style if style in ("exact", "clean", "rewrite") else "clean")
-        how.addRow("Writing style", self.style_seg, hint="Clean keeps your own words and fixes punctuation and misheard words. Exact adds nothing at all.")
-        layout.addWidget(how)
-        layout.addSpacing(8)
 
-        opts = Group()
-        self.autostart_box = IOSSwitch("Start Waky when Windows starts")
+        columns = QHBoxLayout()
+        columns.setSpacing(16)
+        left = Group()
+        self.vis_segment = Segmented([("always", "Always"), ("active", "Dictating"), ("hidden", "Hidden")], start if start in ("always", "active", "hidden") else "always")
+        left.addRow(self._choice("Show the pill", self.vis_segment, "Dictating: it fades in only when you hold the hotkey."))
+        self.language_seg = Segmented([("english", "English"), ("hinglish", "Hinglish"), ("hindi", "Hindi")], language if language in ("english", "hinglish", "hindi") else "english")
+        left.addRow(self._choice("I mostly speak", self.language_seg, "Hinglish means Hindi and English mixed together."))
+        self.style_seg = Segmented([("exact", "Exact"), ("clean", "Clean"), ("rewrite", "Rewrite")], style if style in ("exact", "clean", "rewrite") else "clean")
+        left.addRow(self._choice("Writing style", self.style_seg, "Clean keeps your own words and fixes punctuation and misheard words."))
+        columns.addWidget(left, 1)
+
+        right = Group()
+        self.autostart_box = IOSSwitch("Start with Windows")
         self.autostart_box.setChecked(True)
-        opts.addRow(self.autostart_box, hint="Waky opens quietly in the tray. The pill appears, no window pops up.")
-        self.sound_box = IOSSwitch("Play soft sounds")
+        right.addRow(self.autostart_box, hint="Opens quietly in the tray. No window pops up.")
+        self.sound_box = IOSSwitch("Soft sounds")
         self.sound_box.setChecked(bool(s.get("general", {}).get("sound_effects", False)))
-        opts.addRow(self.sound_box, hint="A gentle tone when recording starts, stops and finishes.")
-        self.history_box = IOSSwitch("Remember recent dictations on this PC")
+        right.addRow(self.sound_box, hint="A gentle tone when recording starts and stops.")
+        self.history_box = IOSSwitch("Remember recent dictations")
         self.history_box.setChecked(bool(s.get("privacy", {}).get("keep_history", True)))
-        opts.addRow(self.history_box, hint="Lets you review what Waky heard and teach it corrections. Text only, never audio. Clear it any time.")
-        self.update_box = IOSSwitch("Check for updates automatically")
+        right.addRow(self.history_box, hint="Text only, on this PC. Lets you teach Waky corrections.")
+        self.update_box = IOSSwitch("Check for updates")
         self.update_box.setChecked(bool(s.get("updates", {}).get("auto_check", True)))
-        opts.addRow(self.update_box, hint="Looks at GitHub about once a day. Nothing installs without your click.")
-        layout.addWidget(opts)
+        right.addRow(self.update_box, hint="About once a day. Nothing installs without you.")
+        columns.addWidget(right, 1)
+        layout.addLayout(columns)
         layout.addStretch()
         return page
 
     def _check_page(self) -> QWidget:
-        page, layout = self._page("System check", "Making sure Waky will work on this PC. Anything amber or red comes with a fix.")
+        page, layout = self._page(
+            [("g", "Everything"), ("c", tile_label(CHECK, "#FFFFFF", "#1E9E4A", 50)), ("k", "working?")],
+            "A quick look to make sure Waky will work on this PC. Anything amber or red comes with a fix.",
+        )
         card = Group()
         self.check_rows: dict[str, tuple[QLabel, QLabel]] = {}
         for key, name in (("mic", "Microphone"), ("perm", "Microphone access"), ("keys", "Global hotkeys"), ("clip", "Paste into apps"), ("net", "Internet to Groq")):
             row = QHBoxLayout()
             row.setContentsMargins(0, 0, 0, 0)
             dot = QLabel("●")
-            dot.setFixedWidth(18)
-            dot.setStyleSheet("color:#9A9AA1;")
+            dot.setFixedWidth(20)
+            dot.setStyleSheet("color:#B4B4BA;")
             title = QLabel(name)
             title.setStyleSheet("font-weight:600;")
-            title.setFixedWidth(140)
+            title.setFixedWidth(150)
             detail = QLabel("Checking...")
             detail.setObjectName("sub")
+            detail.setStyleSheet("font-size:13px;")
             detail.setWordWrap(True)
             row.addWidget(dot)
             row.addWidget(title)
@@ -538,6 +465,7 @@ class OnboardingWizard(QDialog):
             card.addRow(row)
             self.check_rows[key] = (dot, detail)
         layout.addWidget(card)
+        layout.addSpacing(14)
         row = QHBoxLayout()
         again = QPushButton("Check again")
         again.clicked.connect(self._run_checks)
@@ -554,13 +482,13 @@ class OnboardingWizard(QDialog):
 
     def _run_checks(self) -> None:
         for dot, detail in self.check_rows.values():
-            dot.setStyleSheet("color:#9A9AA1;")
+            dot.setStyleSheet("color:#B4B4BA;")
             detail.setText("Checking...")
         self.fix_button.hide()
         threading.Thread(target=lambda: self._checks_done.emit(system_check.run_all()), daemon=True, name="waky-system-check").start()
 
     def _on_checks(self, results) -> None:
-        pal = ios_theme.current()
+        pal = ios_theme.LIGHT
         colors = {"ok": pal.success, "warn": "#FF9500", "fail": pal.danger}
         self._fix_uri = ""
         for c in results:
@@ -577,53 +505,54 @@ class OnboardingWizard(QDialog):
             QDesktopServices.openUrl(QUrl(self._fix_uri))
 
     def _try_page(self) -> QWidget:
-        page, layout = self._page("Try it", "Click inside the box, hold your hotkey, say a sentence, then release.")
+        page, layout = self._page(
+            [("g", "Say something."), ("c", tile_label(MIC, "#FFFFFF", "#2E62FF", 50)), ("k", "Watch it land.")],
+            "",
+        )
         self.try_hint = QLabel("")
         self.try_hint.setObjectName("sub")
         layout.addWidget(self.try_hint)
+        layout.addSpacing(10)
         self.try_box = QPlainTextEdit()
-        self.try_box.setPlaceholderText("Your dictated text appears here...")
+        self.try_box.setPlaceholderText("Click here, hold your hotkey, say a sentence, then release...")
         layout.addWidget(self.try_box, 1)
-        tip = QLabel("Tip: say \"write email\" or \"bullet points\" inside your sentence to reshape the text. Add your own modes in Settings > Commands.")
-        tip.setObjectName("caption")
-        tip.setWordWrap(True)
-        layout.addWidget(tip)
+        layout.addSpacing(10)
+        layout.addWidget(self._caption(
+            "Tip: say \"write email\" or \"bullet points\" at the start or end of your sentence to reshape it. Add your own modes in Settings > Commands."
+        ))
         return page
 
     def _done_page(self) -> QWidget:
-        page = QWidget()
-        layout = QVBoxLayout(page)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(8)
-        self.done_badge = PopBadge("check", 72)
-        layout.addWidget(self.done_badge, 0, Qt.AlignLeft)
-        heading = QLabel("You are all set")
-        heading.setObjectName("title")
-        layout.addWidget(heading)
+        page, layout = self._page([("g", "You are"), ("c", tile_label(CHECK, "#FFFFFF", "#1E9E4A", 50)), ("k", "all set.")], "")
         self.done_note = QLabel("")
         self.done_note.setObjectName("sub")
         self.done_note.setWordWrap(True)
         layout.addWidget(self.done_note)
-        layout.addSpacing(14)
-        tips = Group()
-        for title, text in (
-            ("Open Settings", "Hold Shift and click the pill, or use the tray icon."),
-            ("Move the pill", "Hold Alt and drag it. Settings > Floating Bar has more spots."),
-            ("Rewrite text", "Select text in any app, hold your hotkey and say what to change."),
-            ("Updates", "Waky tells you when a new version is ready. Settings > Updates."),
+        layout.addSpacing(18)
+        row = QHBoxLayout()
+        row.setSpacing(14)
+        for glyph, title, text in (
+            (KEYBOARD, "Hold to talk", "Press your hotkey in any text field."),
+            (PEN, "Teach Waky", "Settings > History: fix a word once, it remembers."),
+            (SYNC, "Stays current", "Waky tells you when an update is ready."),
         ):
-            row = QHBoxLayout()
-            row.setContentsMargins(0, 0, 0, 0)
-            head = QLabel(title)
-            head.setStyleSheet("font-weight:600;")
-            head.setFixedWidth(120)
+            card = Card()
+            cl = QVBoxLayout(card)
+            cl.setContentsMargins(18, 18, 18, 18)
+            cl.setSpacing(10)
+            cl.addWidget(tile_label(glyph, "#18181B", "#FFFFFF", 38, shadow=False), 0, Qt.AlignLeft)
+            name = QLabel(title)
+            name.setStyleSheet("font-size:15px;font-weight:600;")
+            cl.addWidget(name)
             body = QLabel(text)
-            body.setObjectName("sub")
+            body.setStyleSheet("font-size:12px;color:#7C7C83;")
             body.setWordWrap(True)
-            row.addWidget(head)
-            row.addWidget(body, 1)
-            tips.addRow(row)
-        layout.addWidget(tips)
+            cl.addWidget(body)
+            cl.addStretch()
+            row.addWidget(card, 1)
+        layout.addLayout(row)
+        layout.addSpacing(14)
+        layout.addWidget(self._caption("Tip: hold Shift and click the pill to open Settings. Hold Alt and drag to move it."))
         layout.addStretch()
         return page
 
@@ -637,7 +566,7 @@ class OnboardingWizard(QDialog):
         if index == 6:
             self._run_checks()
         if index == 7:
-            self.try_hint.setText(f"Hotkey: {hotkeys.pretty_combo(self.hotkey_edit.text())}   (or F8)")
+            self.try_hint.setText(f"Hold {hotkeys.pretty_combo(self.hotkey_edit.text())} (or F8) and speak.")
         if index == 8:
             mode = self.vis_segment.value()
             where = {
@@ -651,9 +580,6 @@ class OnboardingWizard(QDialog):
                 else "Local mode is on. Open Settings > Transcription next and download a model so dictation works offline."
             )
             self.done_note.setText(f"{where} {engine}")
-            self.done_badge.pop()
-        if index == 0:
-            self.welcome_badge.pop()
         self.stack.go(index, direction, animate)
         self._update_nav()
 
@@ -664,11 +590,11 @@ class OnboardingWizard(QDialog):
     def _update_nav(self) -> None:
         order = self._visible_indexes()
         position = order.index(self.index)
-        self.rail.set_state([STEP_LABELS[i] for i in order], position)
-        self.step_label.setText(f"Step {position + 1} of {len(order)}")
+        self.progress.set_progress(position, len(order))
+        self.step_label.setText(f"{position + 1:02d} / {len(order):02d}   {STEP_LABELS[self.index].upper()}")
         self.back_button.setVisible(position > 0)
         last = position == len(order) - 1
-        self.next_button.setText("Start using Waky" if last else ("Get started" if position == 0 else "Continue"))
+        self.next_button.setText("Start using Waky" if last else ("Get started" if position == 0 else "Continue  →"))
         self.skip_button.setVisible(not last)
         needs_key = self.index == 2 and not self.key_edit.text().strip()
         self.next_button.setEnabled(not needs_key)
