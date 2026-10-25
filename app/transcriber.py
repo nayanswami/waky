@@ -20,7 +20,7 @@ from urllib.request import Request, urlopen
 import numpy as np
 from scipy.io import wavfile
 
-from . import http_pool, llm_engine, model_manager
+from . import http_pool, llm_engine, model_manager, speech_hints
 from .utils import DATA_DIR, FROZEN, PROJECT_ROOT
 
 
@@ -246,7 +246,8 @@ class FasterWhisperTranscriber:
         transcription = self.settings.get("transcription", {})
         model = transcription.get("groq_model", "whisper-large-v3-turbo")
         language_mode = transcription.get("language_mode", "english")
-        language = "en" if language_mode == "english" else None
+        language = {"english": "en", "hindi": "hi"}.get(language_mode)
+        prompt = speech_hints.stt_prompt(self.settings)
         temp_path: Path | None = None
         context = {
             "backend": "groq",
@@ -267,7 +268,7 @@ class FasterWhisperTranscriber:
             self.logger.info("[TRANSCRIBE] language=%s", language or "auto")
             self.logger.info("[TRANSCRIBE] audio_duration=%s", context["audio_duration"])
             self.logger.info("[TRANSCRIBE] request started")
-            payload = self._post_groq_wav(temp_path, api_key, model, language, job_id)
+            payload = self._post_groq_wav(temp_path, api_key, model, language, job_id, prompt)
             text = str(payload.get("text", "")).strip()
             self.device_used = "Groq API"
             self.compute_type_used = "remote"
@@ -287,7 +288,7 @@ class FasterWhisperTranscriber:
                 except Exception:
                     self.logger.warning("Could not delete temporary Groq wav %s", temp_path, exc_info=True)
 
-    def _post_groq_wav(self, wav_path: Path, api_key: str, model: str, language: str | None, job_id: str) -> dict:
+    def _post_groq_wav(self, wav_path: Path, api_key: str, model: str, language: str | None, job_id: str, prompt: str = "") -> dict:
         boundary = f"----Waky{uuid.uuid4().hex}"
 
         def field(name: str, value: str) -> bytes:
@@ -303,6 +304,8 @@ class FasterWhisperTranscriber:
         body.extend(field("response_format", "json"))
         if language:
             body.extend(field("language", language))
+        if prompt:
+            body.extend(field("prompt", prompt))
         file_bytes = wav_path.read_bytes()
         body.extend(
             (
@@ -362,6 +365,7 @@ class FasterWhisperTranscriber:
             vad_parameters={"min_silence_duration_ms": 700, "speech_pad_ms": 450},
             beam_size=3,
             condition_on_previous_text=False,
+            initial_prompt=speech_hints.stt_prompt(self.settings) or None,
         )
         text = " ".join(segment.text.strip() for segment in segments).strip()
         detected_language = getattr(info, "language", None)
@@ -398,6 +402,7 @@ class FasterWhisperTranscriber:
             vad_parameters={"min_silence_duration_ms": 700, "speech_pad_ms": 450},
             beam_size=3,
             condition_on_previous_text=False,
+            initial_prompt=speech_hints.stt_prompt(self.settings) or None,
         )
         text = " ".join(segment.text.strip() for segment in segments).strip()
         detected_language = getattr(info, "language", None)
@@ -428,6 +433,8 @@ class FasterWhisperTranscriber:
                 task,
                 "--job-id",
                 job_id,
+                "--prompt",
+                speech_hints.stt_prompt(self.settings),
                 "--out",
                 str(out_path),
             ]

@@ -167,7 +167,7 @@ class OnboardingWizard(QDialog):
         super().__init__(parent)
         self.config_manager = config_manager
         self.setWindowTitle("Welcome to Waky")
-        self.setFixedSize(820, 600)
+        self.setFixedSize(820, 660)
         fb = config_manager.settings.get("floating_bar", {})
         self.cloud = True
         self._closing = False
@@ -489,6 +489,16 @@ class OnboardingWizard(QDialog):
         layout.addWidget(vis)
         layout.addSpacing(8)
 
+        how = Group()
+        language = s.get("transcription", {}).get("language_mode", "english")
+        self.language_seg = Segmented([("english", "English"), ("hinglish", "Hinglish"), ("hindi", "Hindi")], language if language in ("english", "hinglish", "hindi") else "english")
+        how.addRow("I mostly speak", self.language_seg, hint="Hinglish means Hindi and English mixed in one sentence.")
+        style = s.get("output", {}).get("writing_style", "clean")
+        self.style_seg = Segmented([("exact", "Exact words"), ("clean", "Clean"), ("rewrite", "Rewrite")], style if style in ("exact", "clean", "rewrite") else "clean")
+        how.addRow("Writing style", self.style_seg, hint="Clean keeps your own words and fixes punctuation and misheard words. Exact adds nothing at all.")
+        layout.addWidget(how)
+        layout.addSpacing(8)
+
         opts = Group()
         self.autostart_box = IOSSwitch("Start Waky when Windows starts")
         self.autostart_box.setChecked(True)
@@ -496,6 +506,9 @@ class OnboardingWizard(QDialog):
         self.sound_box = IOSSwitch("Play soft sounds")
         self.sound_box.setChecked(bool(s.get("general", {}).get("sound_effects", False)))
         opts.addRow(self.sound_box, hint="A gentle tone when recording starts, stops and finishes.")
+        self.history_box = IOSSwitch("Remember recent dictations on this PC")
+        self.history_box.setChecked(bool(s.get("privacy", {}).get("keep_history", True)))
+        opts.addRow(self.history_box, hint="Lets you review what Waky heard and teach it corrections. Text only, never audio. Clear it any time.")
         self.update_box = IOSSwitch("Check for updates automatically")
         self.update_box.setChecked(bool(s.get("updates", {}).get("auto_check", True)))
         opts.addRow(self.update_box, hint="Looks at GitHub about once a day. Nothing installs without your click.")
@@ -714,6 +727,9 @@ class OnboardingWizard(QDialog):
         fb.pop("hidden", None)
         s.setdefault("general", {})["sound_effects"] = self.sound_box.isChecked()
         s.setdefault("updates", {})["auto_check"] = self.update_box.isChecked()
+        s.setdefault("transcription", {})["language_mode"] = self.language_seg.value()
+        s.setdefault("output", {})["writing_style"] = self.style_seg.value()
+        s.setdefault("privacy", {})["keep_history"] = self.history_box.isChecked()
         self.config_manager.save_settings()
         self.settings_applied.emit()
 

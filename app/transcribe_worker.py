@@ -32,6 +32,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--language", default="")
     parser.add_argument("--task", default="transcribe")
     parser.add_argument("--job-id", default="manual")
+    parser.add_argument("--prompt", default="", help="vocabulary hint for the speech model")
     parser.add_argument("--out", default="", help="write the JSON result here (packaged exe has no stdout)")
     args = parser.parse_args(argv)
 
@@ -49,6 +50,7 @@ def main(argv: list[str] | None = None) -> int:
             vad_parameters={"min_silence_duration_ms": 700, "speech_pad_ms": 450},
             beam_size=3,
             condition_on_previous_text=False,
+            initial_prompt=args.prompt or None,
         )
         text = " ".join(segment.text.strip() for segment in segments).strip()
         payload = {

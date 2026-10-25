@@ -4,10 +4,10 @@ import logging
 import json
 import os
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Any
 
-from . import llm_engine
+from . import llm_engine, speech_hints
 from .local_memory import (
     add_correction,
     add_memory_note,
@@ -67,12 +67,24 @@ BUILTIN_COMMANDS: tuple[CommandSpec, ...] = (
 
 BUILTIN_KEYS = {spec.key for spec in BUILTIN_COMMANDS}
 
+# Everyday words that older versions treated as commands ("he is very professional" became a rewrite and lost the word).
+AMBIGUOUS_TRIGGERS = {
+    "rewrite", "extend", "extended", "elaborate", "professional", "professionally", "casually", "lowercase", "small letters",
+    "humanizer", "bullet point", "caps small", "make casual", "make professional",
+}
+EDGE_WORDS = 4   # built-in commands must be said at the start or at the end of the sentence
+
+BUILTIN_COMMANDS = tuple(
+    replace(spec, phrases=tuple(p for p in spec.phrases if p.lower() not in AMBIGUOUS_TRIGGERS)) for spec in BUILTIN_COMMANDS
+)
+
 
 def process_text(
     raw_text: str,
     settings: dict | None = None,
     selected_text: str | None = None,
     custom_commands: dict | None = None,
+    recent_context: str = "",
 ) -> str:
     """
     Takes raw transcription text and returns final processed text.
@@ -121,6 +133,11 @@ def process_text(
         LOGGER.info("[COMMAND] auto_translate_to_english=%s", str(auto_translate).lower())
         LOGGER.info("[COMMAND] auto_fix_grammar=%s", str(auto_fix).lower())
 
+        if not selected_mode and not detected_specs:
+            style = str((settings or {}).get("output", {}).get("writing_style", "clean")) if isinstance(settings, dict) else "clean"
+            if style in ("exact", "clean"):
+                return _plain_dictation(instruction_text, style, settings, rewrite_engine, memory_enabled, recent_context, auto_translate, options)
+
         result = _prepare_selected_text_input(selected, instruction_text, detected) if selected_mode else _clean_raw_content(instruction_text)
 
         if not result:
@@ -162,17 +179,18 @@ def process_text(
                 result = _translate_to_english(result)
             result = _rewrite_core(result)
 
-        if auto_translate:
-            result = _translate_to_english(result)
-        if auto_fix:
-            result = _fix_grammar(result)
+        if not cloud_result:
+            if auto_translate:
+                result = _translate_to_english(result)
+            if auto_fix:
+                result = _fix_grammar(result)
         result = _apply_vocabulary(result, memory_enabled)
         result = _remove_forbidden_phrases(result, memory_enabled)
 
         if "call_caps_small" in detected:
             result = _lowercase_preserving_specials(result)
 
-        result = result.strip()
+        result = _sanitize_output(result.strip())
         if memory_enabled:
             _maybe_save_memory_artifacts(result, original, selected_mode, detected, options)
         LOGGER.info("[COMMAND] final_length=%s", len(result))
@@ -182,6 +200,50 @@ def process_text(
     except Exception:
         LOGGER.warning("Command processing failed; returning raw text", exc_info=True)
         return raw_text or ""
+
+
+def _plain_dictation(text: str, style: str, settings, engine: str, memory_enabled: bool, recent_context: str, auto_translate: bool, options: dict) -> str:
+    """Normal dictation: the user's own words with light cleanup. 'exact' skips the AI entirely."""
+    base = _tidy_speech(text)
+    if not base:
+        return ""
+    result = base
+    if style == "clean" and _cloud_should_run(settings, engine, True) and llm_engine.get_api_key(settings):
+        request = llm_engine.RewriteRequest(
+            transcript=base,
+            custom_instructions=str(options.get("custom_instructions", "")),
+            memory_context=speech_hints.llm_block() if memory_enabled else "",
+            auto_translate=auto_translate,
+            plain=True,
+            recent_context=recent_context,
+        )
+        try:
+            cleaned = llm_engine.rewrite(request, settings)
+            if _plausible_cleanup(base, cleaned):
+                result = cleaned
+            else:
+                LOGGER.info("[DICTATION] cleanup result looked wrong (%s -> %s words); keeping the plain transcript", len(base.split()), len(cleaned.split()))
+        except llm_engine.LLMRateLimited as exc:
+            LOGGER.warning("[DICTATION] Groq rate limited (%s); using the plain transcript", exc)
+        except llm_engine.LLMError as exc:
+            LOGGER.warning("[DICTATION] cleanup unavailable (%s); using the plain transcript", exc)
+    elif style == "clean" and auto_translate:
+        result = _translate_to_english(result)
+    result = _apply_vocabulary(result, memory_enabled)
+    result = _remove_forbidden_phrases(result, memory_enabled)
+    result = _sanitize_output(result)
+    LOGGER.info("[DICTATION] style=%s in_words=%s out_words=%s", style, len(base.split()), len(result.split()))
+    return result
+
+
+def _plausible_cleanup(source: str, cleaned: str) -> bool:
+    """Plain dictation must stay close to what was said: reject answers, summaries and expansions."""
+    a, b = len(source.split()), len(cleaned.split())
+    if b == 0:
+        return False
+    if a >= 4 and (b < a * 0.4 or b > a * 1.8 + 6):
+        return False
+    return True
 
 
 def process_text_with_context(
@@ -230,11 +292,14 @@ def _command_specs(custom_commands: dict | None) -> list[CommandSpec]:
                         "make this professional",
                         "make this formal",
                         "make it formal",
-                        "professional",
                     ]
                 )
             )
         key = str(key).strip()
+        if key in BUILTIN_KEYS or item.get("built_in"):
+            phrases = tuple(p for p in phrases if p.lower() not in AMBIGUOUS_TRIGGERS)
+            if not phrases:
+                continue
         specs.append(
             CommandSpec(
                 key=key,
@@ -261,7 +326,13 @@ def _detect_and_remove_commands(text: str, options: dict, specs: list[CommandSpe
         matched = False
         for phrase in sorted(spec.phrases, key=len, reverse=True):
             pattern = re.compile(rf"(?i)(?<!\w){re.escape(phrase)}(?!\w)")
-            if pattern.search(cleaned):
+            found = pattern.search(cleaned)
+            if found and spec.built_in and spec.key in BUILTIN_KEYS:
+                before = len(cleaned[: found.start()].split())
+                after = len(cleaned[found.end():].split())
+                if before >= EDGE_WORDS and after >= EDGE_WORDS:
+                    continue   # said in the middle of a sentence: ordinary words, not a command
+            if found:
                 detected.add(spec.key)
                 cleaned = pattern.sub(" ", cleaned)
                 matched = True
@@ -276,10 +347,30 @@ def _detect_and_remove_commands(text: str, options: dict, specs: list[CommandSpe
 
 
 def _clean_raw_content(text: str) -> str:
+    """Remove only what is never content: um/uh sounds, ', you know,' asides and stuttered repeats."""
     result = normalize_spaces(text)
-    result = re.sub(r"\b(um|uh|you know|actually|basically|like)\b[,\s]*", "", result, flags=re.I)
-    result = re.sub(r"\b(\w+)(\s+\1\b)+", r"\1", result, flags=re.I)
+    result = re.sub(r"(?i)(?<![\w'])(?:um+|uh+|uhm+|erm+|er|hmm+|mm+)(?![\w'])[,.]?\s*", "", result)
+    result = re.sub(r"(?i),\s*(?:you know|i mean|like),\s*", ", ", result)
+    result = re.sub(r"(?i)\b([A-Za-z']{2,})(\s+\1\b)+", r"\1", result)
     return normalize_spaces(result)
+
+
+_DASHES = re.compile(r"\s*[\u2014\u2013]\s*|\s+--+\s+")
+
+
+def _sanitize_output(text: str) -> str:
+    """No em/en dashes in dictated text; commas read naturally and never look machine-written."""
+    if not text:
+        return text
+    text = text.replace("\u2019", "'").replace("\u2018", "'").replace("\u201c", '"').replace("\u201d", '"')
+    text = text.replace("\u2011", "-").replace("\u2010", "-").replace("\u00a0", " ").replace("\u202f", " ")
+    lines = [_DASHES.sub(", ", line).replace(", ,", ",").replace(",,", ",") for line in text.split("\n")]
+    return "\n".join(lines).strip()
+
+
+def _tidy_speech(text: str) -> str:
+    result = _clean_raw_content(text)
+    return result[:1].upper() + result[1:] if result else result
 
 
 def _detected_tone(detected: set[str]) -> str:
@@ -316,6 +407,8 @@ def _match_snippet(text: str) -> str | None:
                 continue
             if _snippet_matches(normalized_text, normalized_trigger):
                 value = str(snippet.get("value", ""))
+                if not value.strip():
+                    continue   # an unfilled placeholder must never swallow what the user said
                 LOGGER.info("[SNIPPET] matched=%s", name)
                 LOGGER.info("[SNIPPET] trigger=%s", trigger)
                 LOGGER.info("[SNIPPET] value_empty=%s", str(not bool(value.strip())).lower())
@@ -444,7 +537,7 @@ def _maybe_save_memory_artifacts(result: str, original: str, selected_mode: bool
     if not result or len(result) < 40:
         return
     try:
-        if options.get("memory_auto_save_useful_vocabulary", True):
+        if options.get("memory_auto_save_useful_vocabulary", False):
             for term in re.findall(r"\b(?:[A-Z][a-zA-Z0-9]+(?:\s+[A-Z][a-zA-Z0-9]+){0,2}|Groq|Codex|Notion)\b", result):
                 if len(term) > 2 and term.lower() not in {"Subject", "Regards"}:
                     add_vocabulary_item(term, "Auto-detected from command output.")
@@ -513,9 +606,7 @@ def _apply_vocabulary(text: str, memory_enabled: bool) -> str:
     if not memory_enabled or not result:
         return result
     try:
-        memory = load_memory()
-        terms = _memory_vocabulary_terms(memory.get("custom_vocabulary", {}))
-        terms.extend(_memory_vocabulary_terms(memory.get("active_project_data", {}).get("vocabulary", {})))
+        terms = speech_hints.vocabulary(200)
         for term in terms:
             if term == "Krishna":
                 LOGGER.info("[VOCAB] loaded term=Krishna")
@@ -792,10 +883,15 @@ def _soften_inappropriate_requests(text: str) -> str:
     return normalize_spaces(result)
 
 
+_HINGLISH_MARKERS = re.compile(r"(?i)\b(kal|aaj|dunga|dungi|bhej|mujhe|karna|karo|nahi|nahin|kya|hai|hain|aap|tum|mera|meri|raha|rahi|chahiye|theek)\b")
+
+
 def _translate_to_english(text: str) -> str:
     if "\n" in text:
         return "\n".join(_translate_structured_line(line) for line in text.splitlines())
     result = normalize_spaces(text)
+    if len(_HINGLISH_MARKERS.findall(result)) < 2:
+        return result   # ordinary English: words like "main" or "u" must not be rewritten
     direct = (
         (r"\bkal\s+main\s+documentation\s+complete\s+kar\s+dunga\b", "I will complete the documentation tomorrow"),
         (r"\bkal\s+mai\s+documentation\s+complete\s+kar\s+dunga\b", "I will complete the documentation tomorrow"),

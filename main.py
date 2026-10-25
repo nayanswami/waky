@@ -28,6 +28,7 @@ from app.command_processor import process_text as process_voice_commands
 from app import app_profiles, http_pool, ios_theme, llm_engine, sounds, updater as updater_mod
 from app.config_manager import ConfigManager
 from app.diagnostics import DiagnosticsService
+from app.history import History
 from app.hotkeys import HotkeyManager
 from app.logger_setup import setup_logging
 from app.selected_text_rewriter import capture_selected_text_safely, rewrite_selected_text
@@ -110,6 +111,8 @@ class WakyApp(QObject):
         self.toggle_recording = False
         self.last_result = ""   # kept in memory only, never written to disk
         self.current_profile: dict | None = None
+        self.current_app_exe = ""
+        self.history = History()
         self.cleaned_up = False
         self.state = AppState.IDLE
         self._state_lock = threading.RLock()
@@ -134,6 +137,7 @@ class WakyApp(QObject):
             self.quit,
         )
         self.paste_last_action = self.tray.add_action("Paste Last Result", self.paste_last_result)
+        self.tray.add_action("Review and teach Waky...", self.open_history)
         self.update_action = self.tray.add_action("Update available", self.open_updates, visible=False)
         self.signals.status.connect(self.bar.set_status)
         self.signals.paste_last_requested.connect(self.paste_last_result)
@@ -207,6 +211,12 @@ class WakyApp(QObject):
     def _on_update_failed(self, message: str) -> None:
         self.logger.warning("Update failed: %s", message)
         self.tray.notify("Waky update failed", message)
+
+    @Slot()
+    def open_history(self) -> None:
+        self.open_settings()
+        if self.settings_window:
+            self.settings_window.show_history()
 
     @Slot()
     def open_updates(self) -> None:
@@ -533,7 +543,9 @@ class WakyApp(QObject):
                 return False
             try:
                 self.logger.info("Recording start requested")
-                self.current_profile = app_profiles.match_profile(self.config.settings, app_profiles.foreground_app())
+                focused = app_profiles.foreground_app()
+                self.current_app_exe = focused.exe if focused else ""
+                self.current_profile = app_profiles.match_profile(self.config.settings, focused)
                 if self.current_profile:
                     self.logger.info("[PROFILE] using %s", self.current_profile.get("name"))
                 self.cancel_requested.clear()
@@ -549,7 +561,7 @@ class WakyApp(QObject):
     def _stop_recording(self) -> None:
         """Keep listening briefly after release so the last word is never cut off."""
         self._transition(AppState.STOPPING)
-        tail = int(self.config.get("audio.tail_ms", 350) or 0)
+        tail = min(int(self.config.get("audio.tail_ms", 300) or 0), 300)
         QTimer.singleShot(max(0, tail), self._finish_stop_recording)
 
     def _finish_stop_recording(self) -> None:
@@ -628,11 +640,14 @@ class WakyApp(QObject):
                     transcript,
                     run_settings,
                     custom_commands=self.config.custom_commands,
+                    recent_context=self.history.recent_context(self.current_app_exe),
                 ).strip()
             self.logger.info("Cleanup finished seconds=%.3f final_chars=%s", time.perf_counter() - clean_started, len(final_text))
             if not final_text:
                 return {"pipeline_id": pipeline_id, "status": "empty_transcript"}
             self.last_result = final_text
+            if self.current_input_mode != "selected_rewrite":
+                self.history.add(transcript, final_text, self.current_app_exe, persist=bool(self.config.get("privacy.keep_history", True)))
             if self.cancel_requested.is_set():
                 return {"pipeline_id": pipeline_id, "status": "cancelled"}
 
@@ -794,6 +809,7 @@ class WakyApp(QObject):
             self.settings_window.force_reset_requested.connect(lambda: self.reset_pipeline("manual diagnostics reset"))
             self.settings_window.welcome_requested.connect(self.open_onboarding)
             self.settings_window.set_updater(self.updater)
+            self.settings_window.set_history(self.history)
         self.settings_window.load_values()
         self.settings_window.show()
         self.settings_window.raise_()

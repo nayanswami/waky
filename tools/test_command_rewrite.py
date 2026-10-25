@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+import os
 import sys
+import tempfile
 from pathlib import Path
 
+os.environ["WAKY_DATA_DIR"] = tempfile.mkdtemp()   # never touch the real AppData memory
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
+from app import local_memory
 from app.command_processor import process_text
 
 
@@ -167,6 +171,10 @@ def test_openrouter_vocabulary() -> None:
 
 
 def main() -> None:
+    local_memory.ensure_memory_files()
+    local_memory.add_correction("Gopher", "Groq", "test")
+    local_memory.add_correction("open router", "OpenRouter", "test")
+    local_memory.add_vocabulary_item("Waky")
     test_email()
     test_professional_command()
     test_selected_rewrite_professional()

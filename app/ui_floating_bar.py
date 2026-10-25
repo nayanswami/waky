@@ -186,7 +186,7 @@ class FloatingBar(QWidget):
     def _tick(self) -> None:
         dt = 0.016
         target = self._target()
-        accel = 300.0 * (target - self._expand) - 24.0 * self._vel   # slightly under-damped spring
+        accel = 720.0 * (target - self._expand) - 40.0 * self._vel   # quick, slightly under-damped spring
         self._vel += accel * dt
         self._expand += self._vel * dt
         moving = abs(target - self._expand) > 0.002 or abs(self._vel) > 0.02

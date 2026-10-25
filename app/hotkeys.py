@@ -13,7 +13,8 @@ from pynput import keyboard, mouse
 CAPTURING = threading.Event()
 
 MODIFIER_ORDER = ("ctrl", "alt", "shift", "win")
-TAP_MAX = 0.30      # a press shorter than this is a tap, not dictation
+TAP_MAX = 0.20      # a press shorter than this is a tap, not dictation
+PUSH_DELAY = 0.025  # tiny debounce so Ctrl+Win is recognised as a pair
 DOUBLE_GAP = 0.50   # two taps this close together lock recording on (hands-free)
 
 
@@ -308,7 +309,7 @@ class HotkeyManager:
     def _schedule_push_start(self) -> None:
         if self.pending_push_timer or self.push_active:
             return
-        self.pending_push_timer = threading.Timer(0.06, self._fire_push_start)
+        self.pending_push_timer = threading.Timer(PUSH_DELAY, self._fire_push_start)
         self.pending_push_timer.daemon = True
         self.pending_push_timer.start()
 

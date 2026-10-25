@@ -7,6 +7,7 @@ import threading
 from PySide6.QtCore import QSize, Qt, QTimer, Signal
 from PySide6.QtGui import QColor, QIcon, QPixmap
 from PySide6.QtWidgets import (
+    QApplication,
     QColorDialog,
     QComboBox,
     QDialog,
@@ -49,7 +50,7 @@ from .local_memory import (
     summarize_project_memory,
 )
 from . import __version__, model_manager, pill_styles
-from . import app_profiles
+from . import app_profiles, history as history_mod
 from .hotkeys import pretty_combo
 from .ios_widgets import IOSSwitch as QCheckBox
 from .ios_widgets import FlowLayout, Group, PageStack, PillPreview, Segmented, StyleCard, glyph_pixmap, section_label
@@ -88,7 +89,7 @@ class SettingsWindow(QDialog):
     # ---------- shell: sidebar, pages, footer ----------
     NAV = (
         ("General", "Hotkeys", "Audio", "Floating Bar"),
-        ("Transcription", "Output", "Commands", "App Profiles", "Memory", "Vocabulary", "Snippets"),
+        ("Transcription", "Output", "Commands", "App Profiles", "Memory", "History", "Vocabulary", "Snippets"),
         ("Privacy", "Updates", "Help", "Diagnostics"),
     )
 
@@ -165,6 +166,7 @@ class SettingsWindow(QDialog):
         self._commands_tab()
         self._profiles_tab()
         self._memory_tab()
+        self._history_tab()
         self._vocabulary_tab()
         self._snippets_tab()
         self._privacy_tab()
@@ -194,7 +196,7 @@ class SettingsWindow(QDialog):
     SECTION_STYLE = {
         "General": ("", "#8E8E93"), "Hotkeys": ("", "#FF9500"), "Audio": ("", "#FF3B30"),
         "Floating Bar": ("", "#2E62FF"), "Transcription": ("", "#5E5CE6"), "Output": ("", "#34C759"),
-        "Commands": ("", "#AF52DE"), "App Profiles": ("", "#FF6482"), "Memory": ("", "#32ADE6"), "Vocabulary": ("", "#FF2D55"),
+        "Commands": ("", "#AF52DE"), "App Profiles": ("", "#FF6482"), "Memory": ("", "#32ADE6"), "History": ("", "#5E5CE6"), "Vocabulary": ("", "#FF2D55"),
         "Snippets": ("", "#FFAA00"), "Privacy": ("", "#30B0C7"), "Updates": ("", "#0A84FF"),
         "Help": ("", "#5AC8FA"), "Diagnostics": ("", "#636366"),
     }
@@ -227,6 +229,7 @@ class SettingsWindow(QDialog):
             "Commands": "Voice modes, your own instructions and trigger phrases.",
             "App Profiles": "Let the app you are typing into decide the style: casual in chat, polished in email, literal in code.",
             "Memory": "Local memory that helps Waky spell and phrase things your way.",
+            "History": "See what Waky heard and wrote, fix a word, and teach it so the next dictation is right.",
             "Vocabulary": "Names and terms Waky should always get right.",
             "Snippets": "Short phrases that expand into longer text.",
             "Privacy": "Keys, cloud use and how much Waky logs.",
@@ -645,17 +648,29 @@ class SettingsWindow(QDialog):
         self.default_mode = QComboBox()
         for key, label in MODE_LABELS.items():
             self.default_mode.addItem(label, key)
+        self.writing_style = Segmented([("exact", "Exact words"), ("clean", "Clean"), ("rewrite", "Rewrite")], "clean")
+        self.writing_style.changed.connect(lambda k: self.writing_style_note.setText(self.STYLE_NOTES.get(k, "")))
+        self.writing_style_note = QLabel("")
         self.auto_paste = QCheckBox("Paste automatically")
         self.preserve_clipboard = QCheckBox("Restore my clipboard afterwards")
         self.never_enter = QCheckBox("Never press Enter")
         self.never_enter.setEnabled(False)
+        style_box = Group()
+        style_box.addRow("Plain dictation", self.writing_style)
+        style_box.addRow(self.writing_style_note)
+        self._block(lay, "How Waky writes", style_box)
         g = Group()
-        g.addRow("Default mode", self.default_mode)
         g.addRow(self.auto_paste)
         g.addRow(self.preserve_clipboard)
         g.addRow(self.never_enter, hint="Waky never sends a message for you.")
-        self._block(lay, None, g)
+        self._block(lay, "Pasting", g)
         self._finish(page, lay, "Output")
+
+    STYLE_NOTES = {
+        "exact": "Your words exactly as the speech model heard them, with only um/uh removed. Fastest, no AI step.",
+        "clean": "Your own words with punctuation fixed, fillers removed and misheard words corrected from context. Recommended.",
+        "rewrite": "Waky polishes and restructures what you said. Closest to the old behaviour; can change your wording.",
+    }
 
     # ---------- Commands ----------
     def _commands_tab(self) -> None:
@@ -938,6 +953,125 @@ class SettingsWindow(QDialog):
         self.summarize_memory_project.clicked.connect(self._summarize_memory_project)
         self.clear_memory_button.clicked.connect(self._clear_memory)
         self._finish(page, lay, "Memory")
+
+    # ---------- History / teach ----------
+    def set_history(self, history) -> None:
+        self.history = history
+        self._reload_history()
+
+    def show_history(self) -> None:
+        self.tabs.go(self.tabs.index_of("History"))
+        self._reload_history()
+        if self.history_list.count():
+            self.history_list.setCurrentRow(0)
+
+    def _history_tab(self) -> None:
+        self.history = None
+        self._history_ids: list[int] = []
+        page, lay = self._page()
+        self.keep_history = QCheckBox("Remember recent dictations on this PC")
+        top = Group()
+        top.addRow(self.keep_history, hint="Text only, never audio. Stored on this PC, the latest 200. Turn off to keep nothing.")
+        self._block(lay, None, top)
+
+        self.history_list = QListWidget()
+        self.history_list.setFixedHeight(170)
+        self.history_heard = QPlainTextEdit()
+        self.history_heard.setReadOnly(True)
+        self.history_heard.setFixedHeight(66)
+        self.history_wrote = QPlainTextEdit()
+        self.history_wrote.setFixedHeight(96)
+        self.history_changes = QLabel("")
+        self.history_changes.setObjectName("caption")
+        self.history_changes.setWordWrap(True)
+        self.history_note = QLabel("")
+        self.history_note.setObjectName("caption")
+        self.history_note.setWordWrap(True)
+        box = Group()
+        box.addRow("Recent dictations", self.history_list)
+        box.addRow("What Waky heard", self.history_heard, hint="The speech recogniser's raw result.")
+        box.addRow("What Waky wrote", self.history_wrote, hint="Fix any wrong word here, then press Teach Waky.")
+        box.addRow(self.history_changes)
+        teach = QPushButton("Teach Waky")
+        teach.setObjectName("primary")
+        copy_btn = QPushButton("Copy text")
+        del_btn = QPushButton("Delete")
+        clear_btn = QPushButton("Clear all")
+        clear_btn.setObjectName("danger")
+        teach.clicked.connect(self._teach_from_history)
+        copy_btn.clicked.connect(lambda: QApplication.clipboard().setText(self.history_wrote.toPlainText()))
+        del_btn.clicked.connect(self._delete_history_entry)
+        clear_btn.clicked.connect(self._clear_history)
+        buttons = FlowLayout(spacing=8)
+        for b in (teach, copy_btn, del_btn, clear_btn):
+            buttons.addWidget(b)
+        box.addRow(buttons)
+        box.addRow(self.history_note)
+        self.history_list.currentRowChanged.connect(self._show_history_entry)
+        self._block(lay, "Review and teach", box, "When you correct a word, Waky remembers what it heard and what you meant, and fixes it by itself next time.")
+        self._finish(page, lay, "History")
+
+    def _reload_history(self) -> None:
+        if self.history is None:
+            return
+        self.history_list.blockSignals(True)
+        self.history_list.clear()
+        self._history_ids = []
+        for entry in self.history.newest_first():
+            when = str(entry.get("time", ""))[11:16]
+            app = str(entry.get("app", "")).replace(".exe", "")
+            text = str(entry.get("written", "")).replace("\n", " ")
+            self.history_list.addItem(f"{when}   {app}   {text[:70]}")
+            self._history_ids.append(entry.get("id"))
+        self.history_list.blockSignals(False)
+        self._show_history_entry(self.history_list.currentRow())
+
+    def _history_entry(self, row: int) -> dict | None:
+        if self.history is None or not 0 <= row < len(self._history_ids):
+            return None
+        return next((e for e in self.history.items if e.get("id") == self._history_ids[row]), None)
+
+    def _show_history_entry(self, row: int) -> None:
+        entry = self._history_entry(row)
+        self.history_heard.setPlainText(str(entry.get("heard", "")) if entry else "")
+        self.history_wrote.setPlainText(str(entry.get("written", "")) if entry else "")
+        if entry:
+            changes = history_mod.word_changes(str(entry.get("heard", "")), str(entry.get("written", "")))
+            self.history_changes.setText(
+                "Waky changed: " + ", ".join(f"'{a}' to '{b}'" for a, b in changes[:8]) if changes else "Waky kept your words as heard (only punctuation and fillers changed)."
+            )
+        else:
+            self.history_changes.setText("Dictate something and it will appear here.")
+
+    def _teach_from_history(self) -> None:
+        entry = self._history_entry(self.history_list.currentRow())
+        if not entry:
+            return
+        edited = self.history_wrote.toPlainText().strip()
+        original = str(entry.get("written", ""))
+        pairs = history_mod.word_changes(original, edited)
+        if not pairs:
+            self.history_note.setText("Nothing to learn yet. Change a word in the box above first.")
+            return
+        listing = "\n".join(f"  {a}  \u2192  {b}" for a, b in pairs[:10])
+        if QMessageBox.question(self, "Teach Waky", f"Remember these fixes for next time?\n\n{listing}") != QMessageBox.Yes:
+            return
+        saved = history_mod.learn(pairs)
+        self.history.update_written(entry["id"], edited)
+        self._refresh_memory_summary()
+        self._reload_history()
+        self.history_note.setText(f"Learned {saved} fix{'es' if saved != 1 else ''}. Waky will use them from the next dictation.")
+
+    def _delete_history_entry(self) -> None:
+        entry = self._history_entry(self.history_list.currentRow())
+        if entry and self.history:
+            self.history.delete(entry["id"])
+            self._reload_history()
+
+    def _clear_history(self) -> None:
+        if self.history and QMessageBox.question(self, "Clear history", "Delete all saved dictations from this PC?") == QMessageBox.Yes:
+            self.history.clear()
+            self._reload_history()
 
     # ---------- Vocabulary / Snippets ----------
     def _vocabulary_tab(self) -> None:
@@ -1263,6 +1397,7 @@ class SettingsWindow(QDialog):
         self.profiles_enabled.setChecked(s.get("app_profiles", {}).get("enabled", True))
         self._reload_profile_list()
         self.update_auto.setChecked(s.get("updates", {}).get("auto_check", True))
+        self.keep_history.setChecked(s.get("privacy", {}).get("keep_history", True))
         self._refresh_help()
         self.trim_silence.setChecked(s["audio"]["silence_trimming"])
         self.keep_ready.setChecked(s["audio"].get("keep_ready", True))
@@ -1274,6 +1409,9 @@ class SettingsWindow(QDialog):
         self.speed_mode.setCurrentText(s["transcription"]["speed_mode"])
         self.language_mode.setCurrentIndex(max(0, self.language_mode.findData(s["transcription"]["language_mode"])))
         self.default_mode.setCurrentIndex(max(0, self.default_mode.findData(s["output"]["default_mode"])))
+        style = s["output"].get("writing_style", "clean")
+        self.writing_style.set_value(style if style in self.STYLE_NOTES else "clean", animate=False)
+        self.writing_style_note.setText(self.STYLE_NOTES.get(self.writing_style.value(), ""))
         self.auto_paste.setChecked(s["output"]["auto_paste"])
         self.preserve_clipboard.setChecked(s["output"]["preserve_clipboard"])
         self.never_enter.setChecked(True)
@@ -1344,6 +1482,7 @@ class SettingsWindow(QDialog):
         )
         s.setdefault("app_profiles", {"items": []})["enabled"] = self.profiles_enabled.isChecked()
         s.setdefault("updates", {})["auto_check"] = self.update_auto.isChecked()
+        s["privacy"]["keep_history"] = self.keep_history.isChecked()
         s["audio"]["microphone"] = self.microphone.currentData()
         s["audio"]["silence_trimming"] = self.trim_silence.isChecked()
         s["audio"]["keep_ready"] = self.keep_ready.isChecked()
@@ -1355,6 +1494,7 @@ class SettingsWindow(QDialog):
         s["transcription"]["language_mode"] = self.language_mode.currentData()
         s["transcription"]["speed_mode"] = self.speed_mode.currentText()
         s["output"]["default_mode"] = self.default_mode.currentData()
+        s["output"]["writing_style"] = self.writing_style.value()
         s["output"]["auto_paste"] = self.auto_paste.isChecked()
         s["output"]["preserve_clipboard"] = self.preserve_clipboard.isChecked()
         s["output"]["never_press_enter"] = True

@@ -55,7 +55,7 @@
           <a class="btn btn-pink btn-lg js-download" href="#get" data-magnetic>Download for Windows <b>&rarr;</b></a>
           <a class="btn btn-ink btn-lg" href="#how" data-magnetic>See how it thinks</a>
         </div>
-        <p class="mono micro js-hide" data-in>FREE &middot; <span class="js-version">V1.2.1</span> &middot; <span class="js-size">ABOUT 110 MB</span> &middot; WINDOWS 10 + 11 &middot; BRING YOUR OWN KEY</p>
+        <p class="mono micro js-hide" data-in>FREE &middot; <span class="js-version">V1.3.0</span> &middot; <span class="js-size">ABOUT 110 MB</span> &middot; WINDOWS 10 + 11 &middot; BRING YOUR OWN KEY</p>
         <p class="micro js-hide" data-in>No Python or extra installs. Windows may say "unknown publisher": click <b>More info</b>, then <b>Run anyway</b>. <a href="guide.html#install">Why?</a></p>
         <p class="note js-note" role="status">The installer link is not set on this preview yet.</p>
       </div>
@@ -126,7 +126,7 @@
           <div>
             <p class="mono">03 / YOUR RULES</p>
             <h2 class="h2" data-split>Modes you write yourself.</h2>
-            <p class="lede">Say the phrase anywhere in a sentence. Waky removes it, follows it, and pastes the result.</p>
+            <p class="lede">Say the mode name at the start or the end of what you say. Waky removes it, follows it, and pastes the result.</p>
           </div>
           <div class="arrows"><button id="prev" aria-label="Previous">&larr;</button><button id="next" aria-label="Next">&rarr;</button></div>
         </div>
@@ -171,7 +171,7 @@
           <div class="tile t-white" data-tilt data-reveal>
             <p class="mono">THE PILL</p>
             <p class="tile-big">Shift + click</p>
-            <p class="micro">opens settings. Alt + drag moves it. Pick a style, colour, size and a spot on screen, then show it always, only while you talk, or never.</p>
+            <p class="micro">opens settings. Pick a style, colour, size and spot, then show it always, only while you talk, or never.</p>
             <div class="pick" id="pick" role="radiogroup" aria-label="Pill style">
               <button role="radio" aria-checked="true" data-style="dark">Island</button>
               <button role="radio" aria-checked="false" data-style="minimal">Minimal</button>
@@ -234,6 +234,8 @@
         <details data-reveal><summary>How do I open settings?</summary><p>Hold Shift and click the pill, or use the tray icon.</p></details>
         <details data-reveal><summary>Will Waky start when I turn on my PC?</summary><p>Yes, by default. It starts quietly in the tray and the pill appears. No window opens. Turn it off in Settings &gt; General.</p></details>
         <details data-reveal><summary>Can I keep it listening without holding the key?</summary><p>Yes. Tap your push-to-talk key twice quickly and Waky keeps listening after you let go. Press it once more to stop. You can also use the hands-free toggle key.</p></details>
+        <details data-reveal><summary>Does Waky change my words?</summary><p>Not unless you ask. The default style, Clean, keeps your own words and only fixes punctuation, fillers and misheard words. Exact words skips the AI entirely and is the fastest. Rewrite is the old, more polished style. Change it in Settings &gt; Output.</p></details>
+        <details data-reveal><summary>How do I fix a word Waky keeps getting wrong?</summary><p>Open Settings &gt; History (or the tray icon: Review and teach Waky). Pick the dictation, correct the word, and press Teach Waky. It remembers what it heard and what you meant, and fixes it on its own next time. Text only, kept on your PC, and you can switch it off.</p></details>
         <details data-reveal><summary>Can it write differently in different apps?</summary><p>Yes. App profiles in Settings let the app you are typing into set the style: casual in Slack or WhatsApp, polished in email, literal in code editors. Presets cover the common apps, and you can add any app.</p></details>
         <details data-reveal><summary>Can I hide the pill?</summary><p>Yes. Choose Always, Only while dictating (it fades in when you hold the hotkey), or Always hidden, in Settings &gt; Floating Bar or from the tray menu.</p></details>
         <details data-reveal><summary>Can I use a mouse button as the hotkey?</summary><p>Yes. Click a hotkey box in Settings and press your middle button or a side (Back / Forward) button. Combine it with Ctrl, Alt or Shift if you like.</p></details>
@@ -258,7 +260,7 @@
 
   <footer class="foot">
     <div class="wrap">
-      <span class="mono">WAKY <span class="js-version">V1.2.1</span> &middot; FOR PEOPLE WHO THINK FASTER THAN THEY TYPE</span>
+      <span class="mono">WAKY <span class="js-version">V1.3.0</span> &middot; FOR PEOPLE WHO THINK FASTER THAN THEY TYPE</span>
       <span class="mono"><a href="guide.html">GUIDE</a><a href="#privacy">PRIVACY</a><a href="#faq">FAQ</a><a class="js-repo" href="#">GITHUB</a></span>
     </div>
   </footer>
@@ -268,7 +270,7 @@
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
-  <script src="site-config.js?v=6"></script>
+  <script src="site-config.js?v=7"></script>
   <script src="waky.js?v=3"></script>
 </body>
 </html>

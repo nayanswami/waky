@@ -56,7 +56,7 @@ DEFAULT_SETTINGS: dict[str, Any] = {
         "silence_trimming": True,
         "min_record_seconds": 0.25,
         "keep_ready": True,
-        "tail_ms": 350,
+        "tail_ms": 300,
     },
     "transcription": {
         "backend": "auto_fallback",
@@ -72,6 +72,7 @@ DEFAULT_SETTINGS: dict[str, Any] = {
     },
     "output": {
         "default_mode": "clean_casual",
+        "writing_style": "clean",
         "auto_paste": True,
         "preserve_clipboard": True,
         "never_press_enter": True,
@@ -86,7 +87,7 @@ DEFAULT_SETTINGS: dict[str, Any] = {
         "custom_instructions": "",
         "llm_temperature": 0.3,
         "local_memory_enabled": True,
-        "memory_auto_save_useful_vocabulary": True,
+        "memory_auto_save_useful_vocabulary": False,
         "memory_save_full_transcripts": False,
         "memory_save_transcript_summaries": True,
         "memory_save_command_outputs": True,
@@ -129,6 +130,7 @@ DEFAULT_SETTINGS: dict[str, Any] = {
         "provider": "local_basic",
         "logs_level": "warning",
         "include_transcript_in_logs": False,
+        "keep_history": True,
     },
     "providers": {
         "groq": {"enabled": False, "api_key": ""},

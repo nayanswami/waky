@@ -8,6 +8,8 @@ import logging
 import os
 import sys
 import tempfile
+
+os.environ["WAKY_DATA_DIR"] = tempfile.mkdtemp()   # never touch the real AppData settings or memory
 import threading
 import time
 from pathlib import Path
@@ -250,6 +252,41 @@ assert llm_engine.pick_model("openai/gpt-oss-20b", False, ids) == "openai/gpt-os
 assert llm_engine.pick_model("anything", True, []) == "anything", "unknown availability keeps the setting"
 assert llm_engine.pick_model("old", False, ["whisper-large-v3", "foo/guard-1", "acme/chat-1"]) == "acme/chat-1"
 assert llm_engine._strip_wrapping("<think>hmm</think>Hello there") == "Hello there"
+
+# ---------- history, word changes and teaching ----------
+import tempfile as _tf
+from app import history as history_mod
+
+assert history_mod.word_changes("hey rahool can you send it", "Hey Rahul, can you send it.") == [("rahool", "Rahul")] or ("rahool", "Rahul") in history_mod.word_changes("hey rahool can you send it", "Hey Rahul, can you send it.")
+assert ("rahul", "Rahul") in history_mod.word_changes("tell rahul now", "tell Rahul now"), "casing-only fixes are noticed"
+assert history_mod.word_changes("a b c", "a b c d") == []
+hist = history_mod.History(Path(_tf.mkdtemp()) / "h.json")
+hist.add("um send it to rahool", "Send it to Rahool.", "slack.exe")
+hist.add("ok thanks", "OK, thanks.", "chrome.exe")
+assert hist.recent_context("slack.exe") == "Send it to Rahool."
+assert "OK, thanks." in hist.recent_context("")
+assert history_mod.History(hist.path).newest_first()[0]["written"] == "OK, thanks.", "history persists"
+hist.add("secret", "secret", "x.exe", persist=False)
+assert "secret" not in hist.path.read_text(encoding="utf-8"), "persist=False keeps text out of the file"
+from app import local_memory, speech_hints
+
+local_memory.ensure_memory_files()
+assert history_mod.learn([("rahool", "Rahul"), ("rahul", "Rahul")]) == 2
+assert ("rahool", "Rahul") in speech_hints.corrections() and "Rahul" in speech_hints.vocabulary()
+assert "Rahul" in speech_hints.stt_prompt({"transcription": {"language_mode": "hinglish"}}) and "Kal main" in speech_hints.stt_prompt({"transcription": {"language_mode": "hinglish"}})
+
+# ---------- dictation stays your own words ----------
+from app import command_processor as cp
+
+plain = {"output": {"writing_style": "exact"}, "command_processing": {"voice_commands_enabled": True, "local_memory_enabled": True}, "providers": {"groq": {"api_key": ""}}}
+assert cp.process_text("I like pizza and the main page is broken", plain) == "I like pizza and the main page is broken"
+assert cp.process_text("he is very professional and I extended the deadline casually", plain) == "He is very professional and I extended the deadline casually"
+assert cp.process_text("um I think uh the the plan works", plain) == "I think the plan works"
+assert cp.process_text("this is fine — really", plain) == "This is fine, really"
+assert cp.process_text("my email is on the slide", plain) == "My email is on the slide", "empty placeholder snippets never swallow a sentence"
+assert cp._plausible_cleanup("send the report tomorrow please", "Send the report tomorrow, please.")
+assert not cp._plausible_cleanup("what time is the meeting", "The meeting is at 3 PM. Let me know if you need anything else about it today.")
+assert cp._sanitize_output("a – b -- c") == "a, b, c"
 
 # ---------- pill visibility modes ----------
 from app.ui_floating_bar import FloatingBar
