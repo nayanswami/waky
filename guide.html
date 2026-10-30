@@ -1,27 +1,17 @@
 <!doctype html>
-<html lang="en">
-<head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Waky setup guide</title>
-  <meta name="description" content="Install Waky, get a free Groq API key, pick your hotkey, build custom modes, and fix common problems.">
-  <meta name="theme-color" content="#f1f1ef">
-  <link rel="icon" href="favicon.ico">
-  <link rel="stylesheet" href="waky.css?v=11">
-
-  </head>
-<body class="guide-page">
-  <header class="site-header guide-nav">
-    <nav class="topbar" aria-label="Main navigation">
-      <a class="brand" href="./" aria-label="Waky home"><img src="assets/waky-icon.png" alt="" width="34" height="34"><span>Waky</span></a>
-      <div class="nav-links"><a href="./#studio">Try Waky</a><a href="./#modes">Writing modes</a><a href="./#privacy">Privacy</a><a href="guide.html">Guide</a></div>
-      <a class="button button-small button-blue js-download" href="./#download">Get Waky <span aria-hidden="true">↗</span></a>
-    </nav>
-  </header>
-
-  <main class="doc">
-    <div class="wrap">
-      <nav class="toc" aria-label="On this page">
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Waky setup guide</title><meta name="description" content="Install Waky, get a free Groq API key, pick your hotkey, build custom modes, and fix common problems.">
+<meta name="theme-color" content="#02050f"><link rel="icon" href="assets/waky-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css"></head>
+<body>
+<header class="nav scrolled" id="nav"><nav class="nav-in" aria-label="Main">
+<a class="brand" href="index.html" aria-label="Waky home"><img src="assets/waky-icon.png" alt="" width="24" height="24"><span>Waky</span></a>
+<a class="nl" href="index.html#smartscreen">Install help</a><a class="nl" href="guide.html">Guide</a>
+<a class="btn btn-nav js-download" href="index.html">Download</a></nav></header>
+<main class="guide-wrap"><div class="wrap gdoc">
+<nav class="toc" aria-label="On this page">
         <a href="#install">Install</a>
         <a href="#verify">Verify download</a>
         <a href="#groq">Get a Groq key</a>
@@ -33,16 +23,15 @@
         <a href="#fix">Troubleshooting</a>
         <a href="#data">Your data</a>
       </nav>
-
-      <article class="prose">
+<article class="prose">
         <p class="eyebrow">Setup guide</p>
         <h1>From download to your first dictation.</h1>
         <p>About two minutes. You need a Windows 11 PC, a microphone, and a free Groq account (or skip Groq and run fully offline).</p>
 
         <h2 id="install">1. Install</h2>
         <ol>
-          <li>Download <code>Waky-Setup</code> from the <a href="./#download">home page</a> and run it.</li>
-          <li>If Windows shows <b>Windows protected your PC</b>, click <b>More info</b>, then <b>Run anyway</b>. The installer is not code-signed yet, so SmartScreen warns about every new app.</li>
+          <li>Download <code>Waky-Setup</code> from the <a href="index.html">home page</a> and run it.</li>
+          <li>If Windows shows <b>Windows protected your PC</b>, click <b>More info</b>, then <b>Run anyway</b>. The installer is not code-signed yet, so SmartScreen warns about every new app. <a href="index.html#smartscreen">See the two clicks, with pictures.</a></li>
           <li>Finish the installer. Waky opens, adds an icon to the system tray, and starts the setup wizard.</li>
         </ol>
         <p>The installer is per-user, so it does not ask for administrator rights.</p>
@@ -61,6 +50,7 @@
         </ol>
         <div class="callout"><p>Your key is saved in Windows Credential Manager on your PC and is sent only to Groq. Treat it like a password and never paste it into a screenshot or chat.</p></div>
 
+        <h3 id="change-key">Changing your Groq key later</h3><p>Open Waky Settings, go to <b>Privacy</b>, and under <b>Providers</b> set Provider to <b>groq</b>. Paste the new key into <b>Groq API key</b> and save. The old key is replaced in Windows Credential Manager. No reinstall is needed.</p>
         <h2 id="wizard">3. First-run setup</h2>
         <p>The setup assistant has a few short steps. Closing it counts as skipping, and it never reappears by itself; reopen it any time from Settings &gt; Help.</p>
         <ol>
@@ -143,19 +133,8 @@
         <h2 id="data">Your data</h2>
         <p>Settings, custom modes, vocabulary and memory live in <code>%APPDATA%\Waky</code>. Your API key is in Windows Credential Manager. Uninstalling removes the app and its startup entry but keeps this data, so a reinstall picks up where you left off. Delete the folder to remove everything.</p>
       </article>
-    </div>
-  </main>
-
-  <footer class="site-footer guide-footer">
-    <div class="wrap footer-main">
-      <a class="brand" href="./"><img src="assets/waky-icon.png" alt="" width="30" height="30"><span>Waky</span></a>
-      <p>For people who think faster than they type.</p>
-      <nav aria-label="Footer"><a href="./">Home</a><a href="./#privacy">Privacy</a><a href="./#faq">FAQ</a></nav>
-    </div>
-    <div class="wrap footer-meta"><span>WAKY · WINDOWS 10 + 11</span><span>YOUR VOICE, YOUR FLOW.</span></div>
-  </footer>
-
-  <script src="site-config.js?v=8"></script>
-  <script src="guide.js?v=3"></script>
-</body>
-</html>
+</div></main>
+<footer class="foot"><div class="wrap foot-in"><a class="brand" href="index.html"><img src="assets/waky-icon.png" alt="" width="22" height="22"><span>Waky</span></a><p>For people who think faster than they type.</p><nav aria-label="Footer"><a href="index.html">Home</a><a href="index.html#smartscreen">Install help</a></nav><span class="mono foot-meta">WAKY · WINDOWS 10 + 11</span></div></footer>
+<script src="site-config.js"></script>
+<script>(function(c){document.querySelectorAll(".js-sha").forEach(function(e){if(c.sha256)e.textContent=c.sha256});document.querySelectorAll(".js-download").forEach(function(a){if(c.downloadUrl){a.href=c.downloadUrl;a.setAttribute("download","")}})})(window.WAKY||{});</script>
+</body></html>
