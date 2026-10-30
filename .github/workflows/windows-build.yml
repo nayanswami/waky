@@ -1,5 +1,8 @@
 name: Windows Build
 
+permissions:
+  contents: write
+
 on:
   workflow_dispatch:
   release:
@@ -29,3 +32,16 @@ jobs:
         with:
           name: Waky-Setup
           path: dist/installer/*.exe
+      - name: Attach installer to the release
+        if: github.event_name == 'release'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          $setup = Get-ChildItem dist/installer/Waky-Setup-*.exe | Select-Object -First 1
+          Copy-Item $setup.FullName Waky-Setup.exe
+          $hash = (Get-FileHash Waky-Setup.exe -Algorithm SHA256).Hash.ToLower()
+          gh release upload $env:TAG Waky-Setup.exe --clobber
+          $body = gh release view $env:TAG --json body -q .body
+          gh release edit $env:TAG --notes "$body`n`nSHA-256 of Waky-Setup.exe: $hash"

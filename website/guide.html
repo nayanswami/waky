@@ -5,24 +5,17 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Waky setup guide</title>
   <meta name="description" content="Install Waky, get a free Groq API key, pick your hotkey, build custom modes, and fix common problems.">
-  <meta name="theme-color" content="#2e62ff">
+  <meta name="theme-color" content="#f1f1ef">
   <link rel="icon" href="favicon.ico">
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="waky.css?v=3">
+  <link rel="stylesheet" href="waky.css?v=11">
+
   </head>
-<body>
-  <header class="nav-shell guide-nav">
-    <nav class="nav" aria-label="Main">
+<body class="guide-page">
+  <header class="site-header guide-nav">
+    <nav class="topbar" aria-label="Main navigation">
       <a class="brand" href="./" aria-label="Waky home"><img src="assets/waky-icon.png" alt="" width="34" height="34"><span>Waky</span></a>
-      <div class="chips">
-        <a href="./#how">How it works</a>
-        <a href="./#modes">Modes</a>
-        <a href="./#offline">Offline</a>
-        <a href="guide.html">Guide</a>
-      </div>
-      <a class="btn btn-pink js-download" href="./#get">Download <b>&darr;</b></a>
+      <div class="nav-links"><a href="./#studio">Try Waky</a><a href="./#modes">Writing modes</a><a href="./#privacy">Privacy</a><a href="guide.html">Guide</a></div>
+      <a class="button button-small button-blue js-download" href="./#download">Get Waky <span aria-hidden="true">↗</span></a>
     </nav>
   </header>
 
@@ -153,11 +146,13 @@
     </div>
   </main>
 
-  <footer class="foot">
-    <div class="wrap">
-      <span class="mono">WAKY &middot; MADE FOR PEOPLE WHO THINK FASTER THAN THEY TYPE</span>
-      <span class="mono"><a href="./">HOME</a><a href="./#privacy">PRIVACY</a><a href="./#faq">FAQ</a></span>
+  <footer class="site-footer guide-footer">
+    <div class="wrap footer-main">
+      <a class="brand" href="./"><img src="assets/waky-icon.png" alt="" width="30" height="30"><span>Waky</span></a>
+      <p>For people who think faster than they type.</p>
+      <nav aria-label="Footer"><a href="./">Home</a><a href="./#privacy">Privacy</a><a href="./#faq">FAQ</a></nav>
     </div>
+    <div class="wrap footer-meta"><span>WAKY · WINDOWS 10 + 11</span><span>YOUR VOICE, YOUR FLOW.</span></div>
   </footer>
 
   <script src="site-config.js?v=8"></script>

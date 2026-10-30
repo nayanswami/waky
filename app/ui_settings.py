@@ -53,6 +53,7 @@ from . import __version__, model_manager, pill_styles
 from . import app_profiles, history as history_mod
 from .hotkeys import pretty_combo
 from .ios_widgets import IOSSwitch as QCheckBox
+from .ui_insights import InsightsPage
 from .ios_widgets import FlowLayout, Group, PageStack, PillPreview, Segmented, StyleCard, glyph_pixmap, section_label
 from .startup_manager import StartupManager
 from .ui_widgets import HotkeyEdit
@@ -89,7 +90,7 @@ class SettingsWindow(QDialog):
     # ---------- shell: sidebar, pages, footer ----------
     NAV = (
         ("General", "Hotkeys", "Audio", "Floating Bar"),
-        ("Transcription", "Output", "Commands", "App Profiles", "Memory", "History", "Vocabulary", "Snippets"),
+        ("Transcription", "Output", "Commands", "App Profiles", "Memory", "History", "Insights", "Vocabulary", "Snippets"),
         ("Privacy", "Updates", "Help", "Diagnostics"),
     )
 
@@ -167,6 +168,7 @@ class SettingsWindow(QDialog):
         self._profiles_tab()
         self._memory_tab()
         self._history_tab()
+        self._insights_tab()
         self._vocabulary_tab()
         self._snippets_tab()
         self._privacy_tab()
@@ -196,7 +198,7 @@ class SettingsWindow(QDialog):
     SECTION_STYLE = {
         "General": ("", "#8E8E93"), "Hotkeys": ("", "#FF9500"), "Audio": ("", "#FF3B30"),
         "Floating Bar": ("", "#2E62FF"), "Transcription": ("", "#5E5CE6"), "Output": ("", "#34C759"),
-        "Commands": ("", "#AF52DE"), "App Profiles": ("", "#FF6482"), "Memory": ("", "#32ADE6"), "History": ("", "#5E5CE6"), "Vocabulary": ("", "#FF2D55"),
+        "Commands": ("", "#AF52DE"), "App Profiles": ("", "#FF6482"), "Memory": ("", "#32ADE6"), "History": ("", "#5E5CE6"), "Insights": ("", "#30B0C7"), "Vocabulary": ("", "#FF2D55"),
         "Snippets": ("", "#FFAA00"), "Privacy": ("", "#30B0C7"), "Updates": ("", "#0A84FF"),
         "Help": ("", "#5AC8FA"), "Diagnostics": ("", "#636366"),
     }
@@ -230,6 +232,7 @@ class SettingsWindow(QDialog):
             "App Profiles": "Let the app you are typing into decide the style: casual in chat, polished in email, literal in code.",
             "Memory": "Local memory that helps Waky spell and phrase things your way.",
             "History": "See what Waky heard and wrote, fix a word, and teach it so the next dictation is right.",
+            "Insights": "Your words per minute, streak, fixes and the phrases you say most. Counts only, kept on this PC.",
             "Vocabulary": "Names and terms Waky should always get right.",
             "Snippets": "Short phrases that expand into longer text.",
             "Privacy": "Keys, cloud use and how much Waky logs.",
@@ -954,6 +957,31 @@ class SettingsWindow(QDialog):
         self.clear_memory_button.clicked.connect(self._clear_memory)
         self._finish(page, lay, "Memory")
 
+    # ---------- Insights ----------
+    def _insights_tab(self) -> None:
+        self.stats = None
+        page, lay = self._page()
+        self.insights = InsightsPage()
+        self.insights.reset_requested.connect(self._reset_insights)
+        lay.addWidget(self.insights)
+        self.tabs.currentChanged.connect(lambda i: self._refresh_insights() if self.tabs.titles[i] == "Insights" else None)
+        self._finish(page, lay, "Insights")
+
+    def set_stats(self, stats) -> None:
+        self.stats = stats
+        self._refresh_insights()
+
+    def _refresh_insights(self) -> None:
+        if self.stats is not None:
+            self.insights.refresh(self.stats)
+
+    def _reset_insights(self) -> None:
+        if self.stats is None:
+            return
+        if QMessageBox.question(self, "Reset insights", "Clear your totals, streak and phrase counts? This cannot be undone.") == QMessageBox.Yes:
+            self.stats.reset()
+            self._refresh_insights()
+
     # ---------- History / teach ----------
     def set_history(self, history) -> None:
         self.history = history
@@ -1057,6 +1085,8 @@ class SettingsWindow(QDialog):
         if QMessageBox.question(self, "Teach Waky", f"Remember these fixes for next time?\n\n{listing}") != QMessageBox.Yes:
             return
         saved = history_mod.learn(pairs)
+        if self.stats is not None:
+            self.stats.add_taught(saved)
         self.history.update_written(entry["id"], edited)
         self._refresh_memory_summary()
         self._reload_history()

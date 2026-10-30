@@ -30,6 +30,7 @@ from app.config_manager import ConfigManager
 from app.diagnostics import DiagnosticsService
 from app import local_memory
 from app.history import History
+from app.stats import Stats
 from app.hotkeys import HotkeyManager
 from app.logger_setup import setup_logging
 from app.selected_text_rewriter import capture_selected_text_safely, rewrite_selected_text
@@ -114,6 +115,7 @@ class WakyApp(QObject):
         self.current_profile: dict | None = None
         self.current_app_exe = ""
         self.history = History()
+        self.stats = Stats()
         self.cleaned_up = False
         self.state = AppState.IDLE
         self._state_lock = threading.RLock()
@@ -670,6 +672,10 @@ class WakyApp(QObject):
                 self.logger.warning("[TIMEOUT] paste exceeded 5 seconds")
                 return {"pipeline_id": pipeline_id, "status": "timeout", "stage": "paste"}
             self._log_info("paste success=%s", pasted)
+            try:
+                self.stats.record(transcript, final_text, audio.duration, self.current_app_exe, track_phrases=bool(self.config.get("privacy.keep_history", True)))
+            except Exception:
+                self.logger.warning("[STATS] could not record", exc_info=True)
             if self.current_input_mode == "selected_rewrite":
                 self.logger.info("[SELECTED_REWRITE] paste success=%s", pasted)
             return {"pipeline_id": pipeline_id, "status": "pasted" if pasted else "copied"}
@@ -812,6 +818,7 @@ class WakyApp(QObject):
             self.settings_window.welcome_requested.connect(self.open_onboarding)
             self.settings_window.set_updater(self.updater)
             self.settings_window.set_history(self.history)
+            self.settings_window.set_stats(self.stats)
         self.settings_window.load_values()
         self.settings_window.show()
         self.settings_window.raise_()
