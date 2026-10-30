@@ -53,6 +53,20 @@ def word_changes(before: str, after: str) -> list[tuple[str, str]]:
     return unique
 
 
+def fix_pairs(heard: str, written: str, final: str) -> list[tuple[str, str]]:
+    """What the user changed by hand (written -> final), plus the raw 'sounds like' word Waky originally heard for each one."""
+    changed = word_changes(written, final)
+    heard_to_written = word_changes(heard, written) if heard else []
+    out: list[tuple[str, str]] = []
+    for wrong, right in changed:
+        out.append((wrong, right))
+        for heard_word, written_word in heard_to_written:
+            if _core(written_word) == _core(wrong) and _core(heard_word) != _core(wrong):
+                out.append((heard_word, right))
+    seen: set[tuple[str, str]] = set()
+    return [p for p in out if not (p in seen or seen.add(p))]
+
+
 def learn(pairs: list[tuple[str, str]]) -> int:
     """Save (wrong, right) pairs into Waky's memory. Returns how many were saved."""
     from . import local_memory
@@ -124,6 +138,25 @@ class History:
                     break
         text = "\n".join(reversed([p for p in picked if p]))
         return text[-max_chars:]
+
+    def best_match(self, text: str, minimum: float = 0.45) -> dict | None:
+        """The recent dictation that `text` (an edited copy of it, or part of it) most resembles."""
+        target = [_core(w) for w in _words(text) if _core(w)]
+        if not target:
+            return None
+        best, best_score = None, minimum
+        with self._lock:
+            for item in reversed(self.items[-25:]):
+                words = [_core(w) for w in _words(str(item.get("written", ""))) if _core(w)]
+                if not words:
+                    continue
+                matcher = difflib.SequenceMatcher(a=words, b=target, autojunk=False)
+                score = matcher.ratio()
+                if len(target) < len(words):   # the selection may be one sentence of a longer dictation
+                    score = max(score, sum(b.size for b in matcher.get_matching_blocks()) / len(target) * 0.9)
+                if score > best_score:
+                    best, best_score = item, score
+        return best
 
     def newest_first(self) -> list[dict]:
         with self._lock:

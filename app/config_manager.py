@@ -22,6 +22,7 @@ DEFAULT_SETTINGS: dict[str, Any] = {
         "paused": False,
         "onboarding_done": False,
         "onboarding_seen": False,
+        "last_seen_version": "",
         "appearance": "light",
     },
     "floating_bar": {
@@ -46,6 +47,7 @@ DEFAULT_SETTINGS: dict[str, Any] = {
         "toggle_recording": "<f9>",
         "cancel": "<esc>",
         "paste_last": "",
+        "learn_fix": "<ctrl>+<alt>+l",
         "double_tap_lock": True,
         "alternatives": ["<ctrl>+<cmd>", "<ctrl>+<shift>+<space>"],
     },

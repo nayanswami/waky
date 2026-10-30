@@ -3,7 +3,7 @@ from __future__ import annotations
 import time
 
 from PySide6.QtCore import QEvent, QPoint, QRectF, Qt, QTimer, Signal
-from PySide6.QtGui import QAction, QActionGroup, QCursor, QPainter
+from PySide6.QtGui import QAction, QActionGroup, QColor, QCursor, QPainter, QPainterPath, QPen, QTransform
 from PySide6.QtWidgets import QApplication, QMenu, QSystemTrayIcon, QWidget
 
 from . import pill_styles
@@ -29,6 +29,8 @@ class FloatingBar(QWidget):
     position_changed = Signal(int, int)
 
     BOTTOM_MARGIN = 4
+    HEAD = 38           # transparent room above the pill for the hover Settings button
+    GEAR_SIZE = 28
 
     def __init__(self, settings: dict, parent=None) -> None:
         super().__init__(parent)
@@ -46,6 +48,9 @@ class FloatingBar(QWidget):
         self.scale_factor = 1.0
         self._alpha = 1.0           # fade level for the visibility modes
         self._linger_until = 0.0    # keep the pill up briefly after a result so it never blinks
+        self._gear = 0.0            # hover Settings button: 0 hidden .. 1 shown (spring)
+        self._gear_vel = 0.0
+        self._gear_hot = 0.0        # 0..1 highlight while the pointer is on the button itself
         self.setWindowTitle("Waky")
         self.setToolTip("")
         self._apply_window_flags()
@@ -73,8 +78,8 @@ class FloatingBar(QWidget):
 
     def _apply_size(self) -> None:
         w = int(self.pill_style.active_size[0] * self.scale_factor + 34)
-        h = int(self.pill_style.active_size[1] * self.scale_factor + self.BOTTOM_MARGIN * self.scale_factor + 14)
-        self.setFixedSize(max(w, 70), max(h, 34))
+        h = int(self.pill_style.active_size[1] * self.scale_factor + self.BOTTOM_MARGIN * self.scale_factor + 14 + self.HEAD)
+        self.setFixedSize(max(w, 70), max(h, 34 + self.HEAD))
 
     def apply_look(self, key: str | None = None) -> None:
         """Re-read style, accent and size from settings (or preview `key`) and give the pill a spring kick."""
@@ -204,8 +209,79 @@ class FloatingBar(QWidget):
         elif self._alpha <= 0.001 and self.isVisible():
             self.hide()
             return
-        if fading or moving or target == 1.0 or self.status_name in ("Pasted", "Copied", "Error", "Cancelled"):
+        gear_moving = self._tick_gear(dt)
+        if fading or moving or gear_moving or target == 1.0 or self.status_name in ("Pasted", "Copied", "Error", "Cancelled"):
             self.update()
+
+    # ---------- hover Settings button ----------
+    def _pill_rect(self) -> QRectF:
+        """Where the idle pill sits inside this window (it is anchored to the bottom)."""
+        idle_w, idle_h = self.pill_style.idle_size
+        w, h = idle_w * self.scale_factor, max(2.0, idle_h * self.scale_factor)
+        return QRectF(self.width() / 2 - w / 2, self.height() - h - self.BOTTOM_MARGIN * self.scale_factor, w, h)
+
+    def _gear_rect(self) -> QRectF:
+        size = self.GEAR_SIZE * min(self.scale_factor, 1.4)
+        pill = self._pill_rect()
+        return QRectF(self.width() / 2 - size / 2, pill.top() - size - 6 * self.scale_factor, size, size)
+
+    def _tick_gear(self, dt: float) -> bool:
+        point = self.mapFromGlobal(QCursor.pos()).toPointF()
+        calm = self._target() == 0.0 and self._alpha > 0.5 and self.isVisible() and self.drag_offset is None
+        zone = self._pill_rect().adjusted(-14, -12, 14, 8)
+        gear = self._gear_rect()
+        over_gear = calm and self._gear > 0.25 and gear.adjusted(-6, -6, 6, 10).contains(point)
+        want = 1.0 if calm and (zone.contains(point) or over_gear) else 0.0
+        accel = 520.0 * (want - self._gear) - 30.0 * self._gear_vel   # a soft spring with a hint of overshoot
+        self._gear_vel += accel * dt
+        self._gear += self._gear_vel * dt
+        hot_target = 1.0 if over_gear else 0.0
+        self._gear_hot += (hot_target - self._gear_hot) * min(1.0, dt * 14)
+        moving = abs(want - self._gear) > 0.002 or abs(self._gear_vel) > 0.02 or abs(hot_target - self._gear_hot) > 0.01
+        if not moving:
+            self._gear, self._gear_vel = want, 0.0
+            self._gear_hot = hot_target
+        return moving
+
+    def _paint_gear(self, painter: QPainter) -> None:
+        g = self._gear
+        if g <= 0.01:
+            return
+        rect = self._gear_rect()
+        c = rect.center()
+        shown = max(0.0, min(1.0, g))
+        painter.save()
+        painter.setRenderHint(QPainter.Antialiasing)
+        painter.setOpacity(shown * shown * (3 - 2 * shown) * max(0.0, min(1.0, self._alpha * 1.5)))
+        painter.translate(c.x(), c.y() + (1 - g) * 12)      # rises out of the pill
+        scale = 0.55 + 0.45 * g + 0.06 * self._gear_hot
+        painter.scale(scale, scale)
+        r = rect.width() / 2
+        accent = QColor(self.accent)
+        for i, extra in enumerate((3.0, 1.6)):               # soft halo
+            halo = QColor(accent)
+            halo.setAlpha(int((16 + 22 * self._gear_hot) / (i + 1)))
+            painter.setPen(Qt.NoPen)
+            painter.setBrush(halo)
+            painter.drawEllipse(QRectF(-r - extra, -r - extra, 2 * (r + extra), 2 * (r + extra)))
+        painter.setBrush(QColor(24, 25, 29, 238) if self._gear_hot < 0.5 else QColor(accent).darker(150))
+        painter.setPen(QPen(QColor(255, 255, 255, int(60 + 80 * self._gear_hot)), 1.0))
+        painter.drawEllipse(QRectF(-r, -r, 2 * r, 2 * r))
+        painter.rotate(-90 * (1 - g) + 45 * self._gear_hot)  # the cog turns as it arrives and again on hover
+        k = r / 14.0
+        cog = QPainterPath()
+        cog.addEllipse(QRectF(-6.4 * k, -6.4 * k, 12.8 * k, 12.8 * k))
+        for i in range(8):
+            tooth = QPainterPath()
+            tooth.addRoundedRect(QRectF(-1.7 * k, -8.6 * k, 3.4 * k, 4.0 * k), 0.8 * k, 0.8 * k)
+            cog = cog.united(QTransform().rotate(i * 45).map(tooth))
+        hole = QPainterPath()
+        hole.addEllipse(QRectF(-2.6 * k, -2.6 * k, 5.2 * k, 5.2 * k))
+        cog = cog.subtracted(hole)
+        painter.setPen(Qt.NoPen)
+        painter.setBrush(QColor(255, 255, 255, 235))
+        painter.drawPath(cog)
+        painter.restore()
 
     def paintEvent(self, event) -> None:
         painter = QPainter(self)
@@ -216,12 +292,18 @@ class FloatingBar(QWidget):
                 painter, QRectF(0, 0, self.width(), self.height()), self.pill_style, self.status_name, self.animation_phase,
                 time.monotonic() - self.status_started_at, self.BOTTOM_MARGIN, self.scale_factor, self.accent, self._expand,
             )
+            painter.setOpacity(1.0)
+            self._paint_gear(painter)
         finally:
             if painter.isActive():
                 painter.end()
 
     # ---------- Shift+click opens settings, Alt+drag moves ----------
     def mousePressEvent(self, event) -> None:
+        if event.button() == Qt.LeftButton and self._gear > 0.5 and self._gear_rect().adjusted(-6, -6, 6, 10).contains(event.position()):
+            self.settings_requested.emit()
+            event.accept()
+            return
         if event.button() == Qt.LeftButton and bool(event.modifiers() & Qt.ShiftModifier):
             self.settings_requested.emit()
             event.accept()

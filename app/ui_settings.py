@@ -54,6 +54,7 @@ from . import app_profiles, history as history_mod
 from .hotkeys import pretty_combo
 from .ios_widgets import IOSSwitch as QCheckBox
 from .ui_insights import InsightsPage
+from .whats_new import WhatsNewDialog
 from .ios_widgets import FlowLayout, Group, PageStack, PillPreview, Segmented, StyleCard, glyph_pixmap, section_label
 from .startup_manager import StartupManager
 from .ui_widgets import HotkeyEdit
@@ -520,6 +521,7 @@ class SettingsWindow(QDialog):
         self.toggle_hotkey = HotkeyEdit()
         self.cancel_hotkey = HotkeyEdit(allow_single=True)
         self.paste_last_hotkey = HotkeyEdit()
+        self.learn_fix_hotkey = HotkeyEdit()
         keys = Group()
         keys.addRow("Push-to-talk", self.ptt_hotkey, hint="Hold while you speak, release to paste.")
         keys.addRow("Backup push-to-talk", self.ptt_backup_hotkey, hint="Works if another app owns your main combo.")
@@ -542,6 +544,8 @@ class SettingsWindow(QDialog):
         prow.addWidget(self.paste_last_hotkey)
         prow.addWidget(clear)
         extra.addRow("Paste last result", paste_host, hint="Pastes your most recent dictation again. Optional.")
+        self.learn_fix_hotkey.setFixedWidth(210)
+        extra.addRow("Learn from my fix", self.learn_fix_hotkey, hint="After you correct a dictated sentence, select it and press this. Waky saves what it heard and what you meant.")
         self._block(lay, "Extras", extra)
         tip = Group()
         tip.addRow(QLabel(
@@ -957,6 +961,11 @@ class SettingsWindow(QDialog):
         self.clear_memory_button.clicked.connect(self._clear_memory)
         self._finish(page, lay, "Memory")
 
+    def show_whats_new(self) -> None:
+        dialog = WhatsNewDialog(self)
+        dialog.open_insights.connect(lambda: self.tabs.go(self.tabs.index_of("Insights")))
+        dialog.exec()
+
     # ---------- Insights ----------
     def _insights_tab(self) -> None:
         self.stats = None
@@ -1211,6 +1220,8 @@ class SettingsWindow(QDialog):
         self.update_check_btn.clicked.connect(self._check_updates)
         self.update_install_btn.clicked.connect(self._install_update)
         self.update_skip_btn.clicked.connect(self._skip_update)
+        self.whats_new_btn = QPushButton("What's new")
+        self.whats_new_btn.clicked.connect(self.show_whats_new)
 
         card = Group()
         title = QLabel(f"Waky {__version__}")
@@ -1224,6 +1235,7 @@ class SettingsWindow(QDialog):
         actions.addWidget(self.update_check_btn)
         actions.addWidget(self.update_install_btn)
         actions.addWidget(self.update_skip_btn)
+        actions.addWidget(self.whats_new_btn)
         card.addRow(actions)
         self._update_group = card
         self._block(lay, None, card)
@@ -1423,6 +1435,7 @@ class SettingsWindow(QDialog):
         self.toggle_hotkey.setText(s["hotkeys"]["toggle_recording"])
         self.cancel_hotkey.setText(s["hotkeys"]["cancel"])
         self.paste_last_hotkey.setText(s["hotkeys"].get("paste_last", ""))
+        self.learn_fix_hotkey.setText(s["hotkeys"].get("learn_fix", "<ctrl>+<alt>+l"))
         self.double_tap_lock.setChecked(s["hotkeys"].get("double_tap_lock", True))
         self.profiles_enabled.setChecked(s.get("app_profiles", {}).get("enabled", True))
         self._reload_profile_list()
@@ -1507,6 +1520,7 @@ class SettingsWindow(QDialog):
                 "toggle_recording": self.toggle_hotkey.text().strip() or "<f9>",
                 "cancel": self.cancel_hotkey.text().strip() or "<esc>",
                 "paste_last": self.paste_last_hotkey.text().strip(),
+                "learn_fix": self.learn_fix_hotkey.text().strip(),
                 "double_tap_lock": self.double_tap_lock.isChecked(),
             }
         )

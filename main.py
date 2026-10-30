@@ -29,8 +29,11 @@ from app import app_profiles, http_pool, ios_theme, llm_engine, sounds, updater 
 from app.config_manager import ConfigManager
 from app.diagnostics import DiagnosticsService
 from app import local_memory
-from app.history import History
+import pyperclip
+from app.history import History, fix_pairs as history_fix_pairs, learn as history_learn
 from app.stats import Stats
+from app.whats_new import WhatsNewDialog
+from app import __version__ as APP_VERSION
 from app.hotkeys import HotkeyManager
 from app.logger_setup import setup_logging
 from app.selected_text_rewriter import capture_selected_text_safely, rewrite_selected_text
@@ -62,6 +65,8 @@ class AppSignals(QObject):
     toggle_requested = Signal()
     cancel_hotkey_requested = Signal()
     paste_last_requested = Signal()
+    learn_fix_requested = Signal()
+    notify = Signal(str, str)
     push_tap = Signal()
     lock_changed = Signal(bool)
 
@@ -144,6 +149,8 @@ class WakyApp(QObject):
         self.update_action = self.tray.add_action("Update available", self.open_updates, visible=False)
         self.signals.status.connect(self.bar.set_status)
         self.signals.paste_last_requested.connect(self.paste_last_result)
+        self.signals.learn_fix_requested.connect(self.learn_from_selection)
+        self.signals.notify.connect(lambda title, text: self.tray.notify(title, text))
         self.signals.push_tap.connect(self._handle_push_tap)
         self.signals.lock_changed.connect(self._handle_lock_changed)
         self.signals.error.connect(self._show_error)
@@ -169,6 +176,7 @@ class WakyApp(QObject):
             self.cancel,
             self._hotkey_error,
             on_paste_last=self.signals.paste_last_requested.emit,
+            on_learn_fix=self.signals.learn_fix_requested.emit,
             on_push_tap=self.signals.push_tap.emit,
             on_lock_changed=self.signals.lock_changed.emit,
         )
@@ -187,6 +195,12 @@ class WakyApp(QObject):
         self._update_timer.start(6 * 3600 * 1000)
 
         # The welcome tour appears once per install. Closing it counts as skipping, so a normal boot only shows the pill.
+        returning_user = bool(self.config.get("general.onboarding_done", False) or self.config.get("general.onboarding_seen", False))
+        if self.config.get("general.last_seen_version", "") != APP_VERSION:
+            self.config.settings["general"]["last_seen_version"] = APP_VERSION
+            self.config.save_settings()
+            if returning_user:   # an update, not a fresh install: say what changed
+                QTimer.singleShot(2500, self.show_whats_new)
         if not self.config.get("general.onboarding_done", False) and not self.config.get("general.onboarding_seen", False):
             self.config.settings["general"]["onboarding_seen"] = True
             self.config.save_settings()
@@ -222,10 +236,59 @@ class WakyApp(QObject):
             self.settings_window.show_history()
 
     @Slot()
+    def show_whats_new(self) -> None:
+        dialog = WhatsNewDialog()
+        dialog.open_insights.connect(self.open_insights)
+        self._whats_new = dialog
+        dialog.show()
+        dialog.raise_()
+        dialog.activateWindow()
+
+    @Slot()
+    def open_insights(self) -> None:
+        self.open_settings()
+        if self.settings_window:
+            self.settings_window.tabs.go(self.settings_window.tabs.index_of("Insights"))
+
+    @Slot()
     def open_updates(self) -> None:
         self.open_settings()
         if self.settings_window:
             self.settings_window.tabs.go(self.settings_window.tabs.index_of("Updates"))
+
+    @Slot()
+    def learn_from_selection(self) -> None:
+        """The user fixed a dictated sentence by hand and selected it: compare it with what Waky heard and remember the fixes."""
+        def work() -> None:
+            deadline = time.monotonic() + 2.0
+            while self.hotkeys.current_keys and time.monotonic() < deadline:   # wait for the keys to come up before copying
+                time.sleep(0.05)
+            time.sleep(0.1)
+            capture = capture_selected_text_safely(preserve_clipboard=True, timeout_ms=250)
+            if capture is None:
+                self.signals.notify.emit("Waky", "Select the sentence you corrected, then press the Learn hotkey again.")
+                return
+            try:
+                if capture.had_clipboard:
+                    pyperclip.copy(capture.previous_clipboard)
+            except Exception:
+                pass
+            final = capture.selected_text.strip()
+            entry = self.history.best_match(final)
+            if entry is None:
+                self.signals.notify.emit("Waky", "That text does not look like a recent dictation, so there is nothing to learn from.")
+                return
+            pairs = history_fix_pairs(str(entry.get("heard", "")), str(entry.get("written", "")), final)
+            if not pairs:
+                self.signals.notify.emit("Waky", "No changed words found. Waky already wrote it that way.")
+                return
+            saved = history_learn(pairs)
+            self.history.update_written(entry["id"], final)
+            self.stats.add_taught(saved)
+            listing = ", ".join(f"{a} -> {b}" for a, b in pairs[:3])
+            self.signals.notify.emit("Waky learned " + (f"{saved} fix" if saved == 1 else f"{saved} fixes"), listing + ". It will use them from your next dictation.")
+
+        self.executor.submit(work)
 
     @Slot()
     def paste_last_result(self) -> None:

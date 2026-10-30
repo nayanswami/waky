@@ -95,6 +95,7 @@ class HotkeyManager:
         on_paste_last: Callable[[], None] | None = None,
         on_push_tap: Callable[[], None] | None = None,
         on_lock_changed: Callable[[bool], None] | None = None,
+        on_learn_fix: Callable[[], None] | None = None,
     ) -> None:
         self.settings = settings
         self.logger = logger
@@ -107,6 +108,8 @@ class HotkeyManager:
         self.paste_last_down = False
         self.on_push_tap = on_push_tap
         self.on_lock_changed = on_lock_changed
+        self.on_learn_fix = on_learn_fix
+        self.learn_fix_down = False
         self.locked = False         # hands-free lock: recording continues after the keys are released
         self.swallow = False        # ignore key repeat of the press that just stopped a locked recording
         self.press_at = 0.0
@@ -152,7 +155,7 @@ class HotkeyManager:
 
     def _configured_tokens(self) -> set[str]:
         tokens: set[str] = set()
-        for name in ("push_to_talk", "push_to_talk_backup", "toggle_recording", "cancel", "paste_last"):
+        for name in ("push_to_talk", "push_to_talk_backup", "toggle_recording", "cancel", "paste_last", "learn_fix"):
             tokens |= self._parse_combo(self.settings.get("hotkeys", {}).get(name, ""))
         return tokens
 
@@ -195,6 +198,13 @@ class HotkeyManager:
                 self.logger.info("Cancel hotkey pressed")
                 self._drop_lock()
                 self.on_cancel()
+                return
+            if self.on_learn_fix and self._combo_matches("learn_fix"):
+                self._cancel_pending_push()
+                if not self.learn_fix_down:
+                    self.learn_fix_down = True
+                    self.logger.info("Learn-from-my-fix hotkey pressed")
+                    self.on_learn_fix()
                 return
             if self.on_paste_last and self._combo_matches("paste_last"):
                 self._cancel_pending_push()
@@ -249,6 +259,8 @@ class HotkeyManager:
                 self.toggle_combo_was_down = False
             if not self._combo_matches("paste_last"):
                 self.paste_last_down = False
+            if not self._combo_matches("learn_fix"):
+                self.learn_fix_down = False
             if holding:
                 return
             self.swallow = False
