@@ -1,96 +1,239 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Waky — think it, say it, send it</title>
-  <meta name="description" content="Speak naturally. Waky turns your thought into clear writing wherever you work on Windows.">
-  <meta name="theme-color" content="#e8e8e6">
-  <meta property="og:title" content="Waky — think it, say it, send it">
-  <meta property="og:description" content="One shortcut turns your voice into words that are ready to use.">
-  <meta property="og:image" content="assets/waky-icon.png">
-  <link rel="icon" href="assets/waky-icon.png">
-  <link rel="stylesheet" href="waky.css?v=12">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Waky — Free Voice Dictation for Windows</title>
+<meta name="description" content="Hold a key and talk. Waky turns your voice into clean writing in any app on Windows. Free.">
+<meta name="theme-color" content="#000000">
+<meta property="og:title" content="Waky — Think it. Say it. Waky writes it.">
+<meta property="og:description" content="Free voice dictation for Windows. Hold a key and talk.">
+<meta property="og:image" content="assets/waky-icon.png">
+<link rel="icon" href="assets/waky-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900&family=Instrument+Serif:ital@1&display=swap" rel="stylesheet">
+<style>
+html, body { background: #000000 !important; color: #ffffff; }
+html, body { background: #000000; background: var(--bg, #000000); color: #ffffff; color: var(--text, #ffffff); }
+:root{
+  --bg:#000000;--text:#ffffff;--muted:#9a9a9a;--stat:#d8d8d8;--border:rgba(255,255,255,.16);--border-soft:rgba(255,255,255,.12);
+  --logo:15.5px;--logo-mark:22px;--nav:14px;--nav-h:40px;--btn:13.5px;--btn-h:40px;--hero-btn-h:42px;--h1:48px;--lede:15.5px;--badge:12.5px;--stat-size:13.5px;
+  --header-y:22px;--header-x:40px;--stats-x:72px;--stats-y:36px;--hero-gap:85px;--copy-max:860px;--lede-max:470px;
+  --sans:"Inter",system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;--serif:"Instrument Serif","Times New Roman",Times,serif;
+  --nav-pad:0 18px;--badge-mb:22px;--lede-mt:18px;--act-mt:26px;--act-gap:10px;--btn-pad:0 16px;--hbtn-pad:0 18px;--ico:20px;--ico-w-w:38px;--ico-w-h:21px
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:var(--sans);-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;text-rendering:optimizeLegibility;overflow-x:hidden;position:relative}
+a{color:inherit;text-decoration:none}button{font-family:inherit}
+
+.hero-photo{position:fixed;inset:0;z-index:0;overflow:hidden;background:#000}
+.hero-photo video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:1}
+.hero-photo::after{content:"";position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.28) 0%,rgba(0,0,0,0) 28%,rgba(0,0,0,0) 52%,rgba(0,0,0,.55) 100%)}
+.grain{position:fixed;inset:0;z-index:100;pointer-events:none;opacity:.05;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+.page{position:relative;z-index:1;display:grid;grid-template-rows:auto 1fr auto;min-height:100vh;min-height:100dvh}
+.menu-backdrop{display:none}
+
+/* header */
+.header{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;padding:var(--header-y) var(--header-x) 10px;z-index:50;position:relative}
+.logo{display:inline-flex;align-items:center;gap:9px;justify-self:start;font-size:var(--logo);font-weight:600;letter-spacing:-.03em;color:#fff}
+.logo img{width:var(--logo-mark);height:var(--logo-mark);border-radius:6px}
+.logo-suffix{font-weight:400}
+#site-nav{display:flex;align-items:center;gap:8px;justify-self:center}
+#site-nav a{position:relative;overflow:hidden;display:inline-flex;align-items:center;height:var(--nav-h);padding:var(--nav-pad);border-radius:7px;border:1px solid rgba(198,198,198,.55);background:linear-gradient(105deg,#050505 0%,#2a2a2a 48%,#4a4a4a 100%);color:#f3f3f3;font-size:var(--nav);font-weight:400;letter-spacing:-.01em;white-space:nowrap;transition:background .35s ease,border-color .35s ease,box-shadow .35s ease}
+#site-nav a::before{content:"";position:absolute;inset:0;background:linear-gradient(115deg,transparent 30%,rgba(255,255,255,.16) 50%,transparent 70%);transform:translateX(-120%);transition:transform .6s ease}
+#site-nav a:hover{border-color:rgba(235,235,235,.9);background:linear-gradient(105deg,#111 0%,#3a3a3a 45%,#6a6a6a 100%);box-shadow:0 0 18px rgba(200,210,230,.18)}
+#site-nav a:hover::before{transform:translateX(120%)}
+.header-cta{justify-self:end}
+.burger{display:none;width:42px;height:42px;border-radius:6px;border:1px solid var(--border);background:rgba(8,8,8,.55);place-content:center;gap:5px;cursor:pointer;z-index:60;transition:border-color .25s,background .25s}
+.burger span{display:block;width:16px;height:1.5px;border-radius:1px;background:#fff;transition:transform .25s,opacity .2s}
+.burger:hover{border-color:rgba(255,255,255,.32);background:rgba(255,255,255,.05)}
+body.menu-open .burger span:nth-child(1){transform:translateY(6.5px) rotate(45deg)}body.menu-open .burger span:nth-child(2){opacity:0}body.menu-open .burger span:nth-child(3){transform:translateY(-6.5px) rotate(-45deg)}
+
+/* buttons */
+.btn{position:relative;isolation:isolate;overflow:hidden;display:inline-flex;align-items:center;justify-content:center;height:var(--btn-h);padding:var(--btn-pad);border-radius:6px;font-size:var(--btn);font-weight:500;letter-spacing:-.02em;line-height:1;white-space:nowrap;cursor:pointer;transition:background .35s ease,border-color .35s ease,box-shadow .35s ease,color .35s ease,filter .35s ease}
+.btn::after{content:"";position:absolute;inset:0;z-index:-1;background:linear-gradient(115deg,transparent 20%,rgba(255,255,255,.45) 48%,transparent 76%);transform:translateX(-130%);transition:transform .65s ease}
+.btn:hover::after{transform:translateX(130%)}
+.btn-solid{background:linear-gradient(180deg,#fff 0%,#e7e7e7 48%,#cfcfcf 100%);color:#111;border:1px solid #fff;box-shadow:inset 0 1px 0 rgba(255,255,255,.95)}
+.btn-solid:hover{background:linear-gradient(180deg,#fff 0%,#f3f6ff 42%,#d5def2 100%);border-color:#f2f6ff;box-shadow:inset 0 1px 0 #fff,0 0 22px rgba(186,208,255,.35),0 8px 18px rgba(255,255,255,.12)}
+.btn-ghost{background:linear-gradient(135deg,rgba(255,255,255,.12),rgba(0,0,0,.5) 46%,rgba(150,170,200,.1));color:#fff;border:1px solid rgba(198,198,198,.55);box-shadow:inset 0 1px 0 rgba(255,255,255,.12);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px)}
+.btn-ghost:hover{background:linear-gradient(135deg,rgba(210,225,255,.18),rgba(0,0,0,.35) 48%,rgba(180,195,220,.16));border-color:rgba(220,230,255,.8);box-shadow:inset 0 1px 0 rgba(255,255,255,.22),0 0 24px rgba(170,200,255,.28)}
+.hero .btn{height:var(--hero-btn-h);padding:var(--hbtn-pad)}.hero .btn-solid:hover{box-shadow:inset 0 1px 0 #fff,0 0 26px rgba(186,208,255,.4),0 8px 18px rgba(255,255,255,.14)}
+
+/* hero */
+.hero{display:flex;align-items:flex-end;justify-content:center;padding:8px 24px var(--hero-gap);min-height:0}
+.hero-copy{position:relative;z-index:1;display:flex;flex-direction:column;align-items:center;text-align:center;max-width:var(--copy-max);width:100%}
+.badge{display:inline-flex;align-items:center;gap:8px;margin-bottom:var(--badge-mb);padding:9px 15px;border:0;border-radius:5px;background:linear-gradient(90deg,#7d7d7d 0%,#2a2a2a 52%,#0a0a0a 100%);color:#f2f2f2;font-size:var(--badge);font-weight:400;letter-spacing:-.01em}
+.badge-star{width:18px;height:20px;fill:#fff;filter:drop-shadow(0 0 3px rgba(255,255,255,.45))}
+h1{display:flex;flex-direction:column;align-items:center;font-size:var(--h1);font-weight:500;letter-spacing:-.045em;line-height:1.12;color:#fff}
+.headline-line{display:block;overflow:hidden;padding:.06em .15em .14em}
+h1 em{font-family:var(--serif);font-style:italic;font-weight:400;font-size:1.08em;letter-spacing:-.03em;color:#9a9a9a}
+.lede{max-width:var(--lede-max);margin-top:var(--lede-mt);color:#9a9a9a;font-size:var(--lede);font-weight:400;line-height:1.55;letter-spacing:-.015em}
+.hero-actions{display:flex;flex-wrap:wrap;justify-content:center;gap:var(--act-gap);margin-top:var(--act-mt)}
+
+/* stats */
+.stats{display:flex;align-items:center;justify-content:space-between;gap:24px;padding:0 var(--stats-x) var(--stats-y);padding-bottom:max(var(--stats-y),env(safe-area-inset-bottom));color:var(--stat)}
+.stat{display:inline-flex;align-items:center;gap:14px;font-size:var(--stat-size);letter-spacing:-.015em;white-space:nowrap}
+.stat svg{width:var(--ico);height:var(--ico);flex:none}.stat svg.stat-icon-wide{width:var(--ico-w-w);height:var(--ico-w-h)}
+
+/* entrance */
+.appear{opacity:1;animation-duration:1.05s;animation-fill-mode:both;animation-timing-function:cubic-bezier(.16,1,.3,1);animation-delay:var(--d,.08s)}
+.appear--scale{animation-name:in-scale}.appear--soft{animation-name:in-soft}.appear--mask{animation-name:in-mask}.appear--pop{animation-name:in-pop}.appear--btn{animation-name:in-btn}.appear--side{animation-name:in-side}.appear--stat{animation-name:in-stat}
+.lede.appear{animation-duration:1.25s}
+.badge-star{animation:in-star .9s .28s both}h1 em{animation:in-em 1.2s .72s both}
+.is-in{animation:none!important;opacity:1!important;transform:none!important;clip-path:none!important;filter:none!important}
+@keyframes in-scale{from{opacity:0;transform:scale(.84)}to{opacity:1;transform:none}}
+@keyframes in-soft{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+@keyframes in-mask{from{opacity:0;transform:translateY(40%)}to{opacity:1;transform:none}}
+@keyframes in-pop{0%{opacity:0;transform:scale(.9)}70%{opacity:1;transform:scale(1.03)}100%{opacity:1;transform:scale(1)}}
+@keyframes in-btn{from{opacity:0;transform:translateY(18px) scale(.94)}to{opacity:1;transform:none}}
+@keyframes in-side{from{opacity:0;transform:translateX(22px)}to{opacity:1;transform:none}}
+@keyframes in-stat{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:none}}
+@keyframes in-star{0%{transform:scale(.2) rotate(-50deg)}65%{transform:scale(1.2) rotate(8deg)}100%{transform:none}}
+@keyframes in-em{from{opacity:.35;filter:blur(4px)}to{opacity:1;filter:blur(0)}}
+
+/* breakpoints */
+@media (min-width:1280px) and (max-width:1599px){:root{--h1:54px;--lede:16px;--header-x:48px;--stats-x:80px;--copy-max:900px}}
+@media (min-width:1600px){:root{--logo:17px;--logo-mark:24px;--nav:15px;--nav-h:44px;--btn:15px;--btn-h:44px;--hero-btn-h:48px;--h1:64px;--lede:18px;--badge:13.5px;--stat-size:15px;--header-y:28px;--header-x:64px;--stats-y:44px;--stats-x:96px;--copy-max:980px;--lede-max:540px;--nav-pad:0 20px;--badge-mb:26px;--lede-mt:22px;--act-mt:30px;--act-gap:12px;--ico:22px;--ico-w-w:45px;--ico-w-h:24px}}
+@media (min-width:1920px){:root{--logo:18px;--logo-mark:26px;--nav:16px;--nav-h:48px;--btn:16px;--btn-h:48px;--hero-btn-h:52px;--h1:76px;--lede:20px;--badge:14.5px;--stat-size:16px;--header-y:32px;--header-x:80px;--stats-y:52px;--stats-x:120px;--copy-max:1120px;--lede-max:620px;--btn-pad:0 22px;--hbtn-pad:0 22px;--ico-w-w:48px;--ico-w-h:26px}#site-nav{gap:10px}}
+@media (min-width:2560px){:root{--h1:88px;--lede:22px;--header-x:120px;--stats-x:160px;--copy-max:1280px;--lede-max:680px}}
+@media (min-width:901px) and (max-width:1279px){:root{--logo:15px;--nav:13px;--nav-h:36px;--btn:13px;--btn-h:38px;--hero-btn-h:40px;--h1:42px;--lede:15px;--badge:12px;--stat-size:12.5px;--header-y:16px;--header-x:28px;--stats-y:28px;--stats-x:36px;--hero-gap:64px;--copy-max:760px;--lede-max:440px;--nav-pad:0 14px;--badge-mb:16px;--lede-mt:14px;--act-mt:20px}}
+@media (min-width:901px) and (max-height:850px){:root{--header-y:14px;--stats-y:24px;--hero-gap:48px;--h1:40px;--badge-mb:12px;--lede-mt:12px;--act-mt:16px}}
+@media (min-width:901px) and (max-height:720px){:root{--h1:34px;--lede:14px;--hero-gap:32px;--stats-y:18px;--nav-h:30px;--btn-h:34px;--hero-btn-h:36px;--badge-mb:8px}}
+
+@media (max-width:900px){
+  :root{--logo:16px;--btn:15px;--btn-h:46px;--hero-btn-h:48px;--h1:36px;--lede:16.5px;--badge:13.5px;--stat-size:15px;--header-y:16px;--header-x:18px;--stats-x:20px;--stats-y:28px;--hero-gap:36px}
+  html,body{height:auto;overflow-y:auto}
+  .header{grid-template-columns:1fr auto auto;gap:8px;padding-top:max(16px,env(safe-area-inset-top))}
+  .logo,.header-cta,.burger{z-index:80}.burger{display:grid}
+  .menu-backdrop{display:block;position:fixed;inset:0;z-index:40;background:rgba(8,8,8,.42);opacity:0;visibility:hidden;transition:opacity .28s,visibility .28s,backdrop-filter .28s}
+  body.menu-open .menu-backdrop{opacity:1;visibility:visible;backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px)}
+  #site-nav{position:fixed;inset:0;z-index:45;flex-direction:column;justify-content:center;gap:12px;padding:96px 22px 32px;padding-top:max(96px,calc(env(safe-area-inset-top) + 88px));background:transparent;opacity:0;visibility:hidden;transition:opacity .28s,visibility .28s}
+  body.menu-open #site-nav{opacity:1;visibility:visible}
+  #site-nav a{width:100%;height:56px;font-size:19px;border-radius:10px;justify-content:center}
+  body.menu-open{overflow:hidden}
+  .hero-photo::after{background:linear-gradient(180deg,rgba(0,0,0,.4) 0%,rgba(0,0,0,.2) 28%,rgba(0,0,0,.78) 55%,rgba(0,0,0,.92) 100%)}.lede{color:#c4c4c4}
+  .hero{padding:20px 20px 64px}.hero-copy,.lede{max-width:100%}
+  .stats{flex-direction:column;justify-content:center;gap:16px;white-space:normal}.stat{white-space:normal}
+}
+@media (max-width:560px){:root{--h1:34px;--lede:16px;--header-x:16px}.hero-actions{flex-direction:column;width:100%}.hero-actions .btn{width:100%}}
+
+/* SmartScreen help section */
+.ss{position:relative;z-index:2;background:#000;border-top:1px solid var(--border-soft);padding:clamp(70px,9vw,130px) clamp(20px,5vw,72px)}
+.ss-in{max-width:1180px;margin:0 auto}
+.ss-k{display:inline-block;padding:7px 13px;border-radius:5px;background:linear-gradient(90deg,#7d7d7d,#2a2a2a 52%,#0a0a0a);font-size:12.5px;color:#f2f2f2;margin-bottom:22px}
+.ss h2{font-size:clamp(30px,4.2vw,56px);font-weight:500;letter-spacing:-.045em;line-height:1.1;max-width:760px}.ss h2 em{font-family:var(--serif);font-style:italic;font-weight:400;color:#9a9a9a;font-size:1.06em}
+.ss-lede{margin-top:18px;max-width:560px;color:#9a9a9a;font-size:16.5px;line-height:1.55}
+.ss-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:48px}
+.ss-step{display:flex;flex-direction:column;gap:16px}
+.ss-cap{display:flex;align-items:center;gap:12px;font-size:17px;font-weight:500;letter-spacing:-.02em}.ss-cap b{display:grid;place-items:center;width:28px;height:28px;border-radius:50%;background:#fff;color:#000;font-size:14px}
+.ss-cap span{color:#9a9a9a;font-weight:400}
+.dlg{background:#0067c0;border-radius:8px;padding:26px 28px 24px;color:#fff;min-height:300px;display:flex;flex-direction:column;position:relative;box-shadow:0 30px 70px -20px rgba(0,103,192,.45),0 0 0 1px rgba(255,255,255,.12)}
+.dlg h3{font:300 clamp(22px,2.6vw,30px)/1.2 "Segoe UI Variable","Segoe UI",var(--sans);margin-bottom:16px;padding-right:40px}
+.dlg p{font:400 14.5px/1.5 "Segoe UI",var(--sans);color:#e8f1fb}
+.dlg .x{position:absolute;top:0;right:0;width:46px;height:36px;background:#fff;color:#111;display:grid;place-items:center;font-size:20px;border-radius:0 8px 0 0}
+.dlg .kv{margin-top:14px;display:grid;grid-template-columns:90px 1fr;gap:6px 10px;font:400 14.5px "Segoe UI",var(--sans);color:#e8f1fb}
+.dlg .mi{margin-top:8px;display:inline-block;color:#fff;text-decoration:underline;font:400 14.5px "Segoe UI",var(--sans);position:relative;align-self:flex-start;padding:2px 4px;margin-left:-4px}
+.dlg .btns{margin-top:auto;display:flex;justify-content:flex-end;gap:12px;padding-top:30px}
+.dlg .b{background:#fff;color:#000;font:600 14.5px "Segoe UI",var(--sans);padding:10px 20px;border-radius:2px;position:relative}
+.pulse::after{content:"";position:absolute;inset:-7px;border:2px solid #fff;border-radius:6px;animation:ssp 1.8s ease-out infinite}
+@keyframes ssp{0%{opacity:.95;transform:scale(.9)}100%{opacity:0;transform:scale(1.12)}}
+.ss-why{display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:24px}
+.ss-card{border:1px solid var(--border-soft);border-radius:12px;padding:26px;background:linear-gradient(160deg,rgba(255,255,255,.06),rgba(255,255,255,.01))}
+.ss-card h4{font-size:19px;font-weight:500;letter-spacing:-.025em;margin-bottom:10px}.ss-card p,.ss-card li{color:#9a9a9a;font-size:15px;line-height:1.6}.ss-card ol{padding-left:20px;display:grid;gap:6px}.ss-card b{color:#e8e8e8;font-weight:500}.ss-card a{color:#fff;text-decoration:underline;text-underline-offset:3px}
+.ss-foot{max-width:1180px;margin:56px auto 0;padding-top:24px;border-top:1px solid var(--border-soft);color:#6a6a6a;font-size:13.5px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px}
+@media (max-width:900px){.ss-grid,.ss-why{grid-template-columns:1fr}}
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important}.appear,.hero-photo,.hero h1 em,.badge-star{opacity:1;transform:none;clip-path:none;filter:none}}
+</style>
 </head>
-<body class="home">
-  <div class="site-shell">
-    <header class="site-header">
-      <nav class="topbar" aria-label="Main navigation">
-        <a class="brand" href="./" aria-label="Waky home"><img src="assets/waky-icon.png" alt="" width="30" height="30"><span>Waky</span></a>
-        <div class="nav-links"><a href="#studio">How it works</a><a href="#modes">Writing modes</a><a href="#insights">Insights</a><a href="guide.html">Guide</a></div>
-        <a class="nav-cta js-download" href="#download" data-download>Get Waky <span aria-hidden="true">↗</span></a>
-      </nav>
-    </header>
-    <main>
-      <section class="hero" id="top">
-        <div class="hero-pattern" aria-hidden="true"></div>
-        <div class="hero-mark"><span><i></i><i></i><i></i><i></i></span></div>
-        <div class="hero-copy">
-          <p class="eyebrow"><i class="status-dot"></i> A little more room for your thoughts</p>
-          <h1>Think it. Say it.<br><span>Waky writes it.</span></h1>
-          <p class="hero-lede">Speak in your own words. Get back something clear, ready to send, and still yours.</p>
-          <div class="hero-actions"><a class="button button-blue js-download" href="#download" data-download>Get Waky <span>↗</span></a><a class="text-link" href="#studio">See how it works <span>↓</span></a></div>
-        </div>
+<body style="background:#000;color:#fff">
+<div class="grain"></div>
+<div class="hero-photo">
+  <video autoplay muted loop playsinline preload="auto" aria-hidden="true"><source src="https://d8j0ntlcm91z4.cloudfront.net/user_38xzZboKViGWJOttwIXH07lWA1P/hf_20260818_072341_50851634-bbc3-4c33-9acc-7647d4db44aa.mp4" type="video/mp4"></video>
+</div>
+<div class="page">
+  <div class="menu-backdrop"></div>
+  <header class="header">
+    <a class="logo appear appear--scale" href="#top" aria-label="Waky" style="--d:.08s"><img src="assets/waky-icon.png" alt="" width="22" height="22"><span>Waky</span></a>
+    <nav id="site-nav" aria-label="Primary">
+      <a class="appear appear--scale" href="guide.html#use" style="--d:.16s">How It Works</a>
+      <a class="appear appear--soft" href="guide.html#modes" style="--d:.28s">Modes</a>
+      <a class="appear appear--scale" href="#smartscreen" style="--d:.40s">Install Help</a>
+      <a class="appear appear--soft" href="guide.html" style="--d:.52s">Guide</a>
+    </nav>
+    <a class="btn btn-solid header-cta appear appear--scale js-download" href="#download" style="--d:.34s">Download free</a>
+    <button class="burger appear appear--scale" type="button" aria-controls="site-nav" aria-expanded="false" aria-label="Open menu" style="--d:.34s"><span></span><span></span><span></span></button>
+  </header>
 
-        <img class="hero-art" src="assets/waky-hero-collage.png" alt="" aria-hidden="true" width="1536" height="1024">
-        <aside class="float-card note-card" aria-label="A note about speaking naturally"><span class="pin"></span><span class="note-mark">A NOTE TO SELF</span><p>Don’t tidy the thought.<br>Just say it.</p><span class="note-scribble">Waky can sort it out ✳</span></aside>
-        <aside class="float-card reminder-card" aria-label="Waky works in the app you are using"><span class="reminder-top"><i></i> YOUR NEXT MESSAGE</span><div class="reminder-clock">↗</div><p>“Send the update<br>before lunch.”</p><span class="reminder-foot">Said out loud · just now</span></aside>
-        <aside class="float-card mic-card" aria-label="Hold a shortcut to talk"><div class="mic-orb"><span></span><span></span><span></span><span></span><span></span></div><div><span class="mini-label">HOLD TO TALK</span><p><kbd>Ctrl</kbd> <b>+</b> <kbd>Win</kbd></p></div><span class="mic-live"></span></aside>
-        <aside class="float-card output-card" aria-label="Example of a voice thought turned into a message"><div class="output-head"><span><i></i> READY TO PASTE</span><span>EMAIL</span></div><div class="output-body"><small>TO MAYA</small><b>Quick update</b><p>Hi Maya, I’ll send the deck over tomorrow morning.</p></div><div class="output-foot"><span><i class="mail-icon">M</i> New message</span><i class="check">✓</i></div></aside>
-        <div class="edge-caption"><span>YOUR VOICE</span><i></i><span>YOUR WORDS</span><i></i><span>YOUR FLOW</span></div>
-      </section>
-    </main>
+  <main class="hero" id="top">
+    <div class="hero-copy">
+      <span class="badge appear appear--pop" style="--d:.22s"><svg class="badge-star" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.6C12.55 2.6 12.88 3.15 13.08 4.7c.62 4.7 1.52 5.6 6.22 6.22 1.55.2 2.1.53 2.1 1.08s-.55.88-2.1 1.08c-4.7.62-5.6 1.52-6.22 6.22-.2 1.55-.53 2.1-1.08 2.1s-.88-.55-1.08-2.1c-.62-4.7-1.52-5.6-6.22-6.22C3.15 12.88 2.6 12.55 2.6 12s.55-.88 2.1-1.08c4.7-.62 5.6-1.52 6.22-6.22C11.12 3.15 11.45 2.6 12 2.6Z"/></svg>Free voice dictation for Windows</span>
+      <h1><span class="headline-line appear appear--mask" style="--d:.42s">Think it. Say it.</span><span class="headline-line appear appear--mask" style="--d:.62s"><em>Waky</em> writes it.</span></h1>
+      <p class="lede appear appear--soft" style="--d:.82s">Hold a key and talk. Clean writing lands in any app on Windows, with no subscription and no account.</p>
+      <div class="hero-actions">
+        <a class="btn btn-solid appear appear--btn js-download" href="#download" style="--d:.96s">Download free</a>
+        <a class="btn btn-ghost appear appear--side" href="guide.html#use" style="--d:1.10s">See how it works</a>
+      </div>
+    </div>
+  </main>
+
+  <footer class="stats">
+    <div class="stat appear appear--stat" style="--d:1.12s">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><defs><linearGradient id="gA" x1="3" y1="2" x2="14" y2="22" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#fff" stop-opacity=".38"/><stop offset="1" stop-color="#3a3a3a" stop-opacity=".62"/></linearGradient><linearGradient id="gB" x1="3" y1="2" x2="14" y2="22" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#3a3a3a" stop-opacity=".38"/><stop offset="1" stop-color="#fff" stop-opacity=".62"/></linearGradient></defs><rect x="3.4" y="2.6" width="7.2" height="18.8" rx="3.6" fill="url(#gA)"/><rect x="13.4" y="2.6" width="7.2" height="18.8" rx="3.6" fill="url(#gB)"/><rect x="9.2" y="10.9" width="5.6" height="2.2" rx="1.1" fill="#4a4a4a"/></svg>
+      <span>$0, no subscription</span>
+    </div>
+    <div class="stat appear appear--stat" style="--d:1.28s">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.4" y="2.4" width="19.2" height="19.2" rx="6.2" fill="#fff"/><path d="M12 7.1v7.4M8.15 12.35L12 16.2l3.85-3.85" fill="none" stroke="#111" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      <span>No audio recordings saved</span>
+    </div>
+    <div class="stat appear appear--stat" style="--d:1.44s">
+      <svg class="stat-icon-wide" viewBox="0 0 40 22" aria-hidden="true"><circle cx="10.2" cy="11" r="9.2" fill="#2b2b2b"/><ellipse cx="10.2" cy="12.1" rx="4.15" ry="3.7" fill="#f4f4f4"/><circle cx="8.6" cy="11.6" r=".7" fill="#1a1a1a"/><circle cx="11.8" cy="11.6" r=".7" fill="#1a1a1a"/><circle cx="20.2" cy="11" r="9.2" fill="#fff"/><circle cx="17.6" cy="9.6" r="1.7" fill="#111"/><circle cx="22.8" cy="9.6" r="1.7" fill="#111"/><path d="M16.9 13.6q3.3 3 6.6 0" fill="none" stroke="#111" stroke-width="1.2" stroke-linecap="round"/><circle cx="30.2" cy="11" r="9.2" fill="#2e62ff"/><path d="M25.6 8.6l1.6 6 2.1-4.2 1.9 4.2 1.7-6" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" transform="translate(1 .6) scale(.92)"/></svg>
+      <span>Works in any text field</span>
+    </div>
+  </footer>
+</div>
+
+<section class="ss" id="smartscreen">
+  <div class="ss-in">
+    <span class="ss-k">Install help</span>
+    <h2>Windows says it <em>protected your PC?</em> That’s normal. Here’s the way through.</h2>
+    <p class="ss-lede">Waky is new and the installer isn’t code-signed yet, so Windows SmartScreen warns about every new app. It takes two clicks to continue.</p>
+    <div class="ss-grid">
+      <div class="ss-step">
+        <div class="ss-cap"><b>1</b>Click <strong>More info</strong></div>
+        <div class="dlg" role="img" aria-label="Windows SmartScreen dialog with a More info link"><span class="x">×</span><h3>Windows protected your PC</h3><p>Microsoft Defender SmartScreen prevented an unrecognized app from starting. Running this app might put your PC at risk.</p><span class="mi pulse">More info</span><div class="btns"><span class="b">Don’t run</span></div></div>
+      </div>
+      <div class="ss-step">
+        <div class="ss-cap"><b>2</b>Click <strong>Run anyway</strong></div>
+        <div class="dlg" role="img" aria-label="Windows SmartScreen dialog showing the Run anyway button"><span class="x">×</span><h3>Windows protected your PC</h3><p>Microsoft Defender SmartScreen prevented an unrecognized app from starting. Running this app might put your PC at risk.</p><div class="kv"><span>App:</span><span>Waky-Setup.exe</span><span>Publisher:</span><span>Unknown publisher</span></div><div class="btns"><span class="b pulse">Run anyway</span><span class="b">Don’t run</span></div></div>
+      </div>
+    </div>
+    <div class="ss-why">
+      <div class="ss-card"><h4>Want to check the file first?</h4><p>Open PowerShell in your Downloads folder and run <b>Get-FileHash .\Waky-Setup.exe</b>. The result should match the SHA-256 published with each release. The installer is per-user, so it never asks for administrator rights.</p><p style="margin-top:10px"><a href="guide.html#verify">Verify your download →</a></p></div>
+      <div class="ss-card" id="key"><h4>Need to change your Groq key?</h4><ol><li>Open Waky Settings, then <b>Privacy</b>.</li><li>Under <b>Providers</b>, set Provider to <b>groq</b>.</li><li>Paste the new key into <b>Groq API key</b> and save.</li></ol><p style="margin-top:10px">Keys live in Windows Credential Manager. No reinstall needed. <a href="guide.html#groq">Get a free key →</a></p></div>
+    </div>
   </div>
-
-  <section class="studio-section section-pad" id="studio">
-    <div class="wrap">
-      <div class="section-heading"><div><p class="eyebrow">A quick look inside</p><h2>From the first thought<br>to the final sentence.</h2></div><p>Pick a style and tap the mic. The example updates on the spot. Nothing is recorded on this page.</p></div>
-      <div class="studio-card" id="demo">
-        <div class="studio-topline"><div class="studio-brand"><img src="assets/waky-mark.png" alt="" width="24" height="24"><span>Waky preview</span><i class="live-indicator"></i></div><span class="studio-caption" id="demoState">READY WHEN YOU ARE</span></div>
-        <div class="studio-grid">
-          <div class="studio-pane pane-said"><div class="pane-label"><span>What you say</span><span class="live-label"><i></i><b id="demoApp">Email</b></span></div><p class="demo-said" id="demoSaid">um tell sir I can't come to the exam tomorrow because I feel sick can you make this sound professional</p><div class="demo-wave" id="demoWave" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><button class="record-button" id="recordButton" type="button" aria-label="Tap to play the voice demo"><span class="record-core"><i></i><i></i><i></i><i></i><i></i></span></button><span class="record-hint">Tap to hear the transformation</span></div>
-          <div class="studio-divider" aria-hidden="true"><span>→</span></div>
-          <div class="studio-pane pane-result"><div class="pane-label"><span>What Waky writes</span><span class="app-chip"><b class="app-icon mail-icon">M</b><span id="demoAppName">Email</span></span></div><div class="result-document"><span class="document-meta">A CLEAR FIRST DRAFT</span><h3 id="demoTitle">Subject: About tomorrow’s exam</h3><p id="demoOutput">Dear Sir,<br><br>I’m feeling unwell and won’t be able to attend tomorrow’s exam. Please let me know what options are available.<br><br>Thank you for your understanding.</p></div><div class="result-tools"><span class="clean-tag"><i>✦</i> Shaped with care</span><span class="copy-state" id="demoBadge">No filler words</span></div></div>
-        </div>
-        <div class="scenario-row" role="tablist" aria-label="Choose a writing example"><button type="button" class="scenario-tab is-active" role="tab" aria-selected="true" data-scenario="email">Email</button><button type="button" class="scenario-tab" role="tab" aria-selected="false" data-scenario="notes">Notes</button><button type="button" class="scenario-tab" role="tab" aria-selected="false" data-scenario="hinglish">Hinglish</button><button type="button" class="scenario-tab" role="tab" aria-selected="false" data-scenario="prompt">Prompt</button></div>
-      </div>
-    </div>
-  </section>
-
-  <section class="modes-section section-pad" id="modes"><div class="wrap">
-    <div class="section-heading"><div><p class="eyebrow">A voice note can become</p><h2>Whatever the moment needs.</h2></div><p>Keep your hands and attention on what you’re doing. Let Waky shape the writing.</p></div>
-    <div class="mode-grid">
-      <article class="mode-card"><span class="mode-index">01 <i></i> WORK</span><div class="mode-preview preview-email"><span>TO MAYA</span><b>Project update</b><i></i><i></i><i></i><small>Best, Nayan</small></div><h3>An email with the point up front.</h3><p>Turn a quick thought into a clear note with a natural tone.</p><button type="button" data-pick="email">Try email <span>↗</span></button></article>
-      <article class="mode-card"><span class="mode-index">02 <i></i> NOTES</span><div class="mode-preview preview-notes"><b>Friday launch</b><span>✓ Update the product page</span><span>○ Ask Maya for final copy</span><span>○ Share the preview</span></div><h3>Ideas, easier to scan.</h3><p>Group what belongs together into useful notes and lists.</p><button type="button" data-pick="notes">Try notes <span>↗</span></button></article>
-      <article class="mode-card"><span class="mode-index">03 <i></i> LANGUAGE</span><div class="mode-preview preview-language"><span>kal tak bhej dunga</span><b>↓</b><strong>I’ll send it by tomorrow.</strong></div><h3>Speak in your own mix.</h3><p>Move between Hindi and English without losing the meaning.</p><button type="button" data-pick="hinglish">Try Hinglish <span>↗</span></button></article>
-      <article class="mode-card"><span class="mode-index">04 <i></i> CREATE</span><div class="mode-preview preview-prompt"><span><b>ROLE</b> Product designer</span><span><b>TASK</b> Write a launch brief</span><span><b>FORMAT</b> Short sections</span></div><h3>A prompt with a clear shape.</h3><p>Give an idea a role, a task, and the format you have in mind.</p><button type="button" data-pick="prompt">Try prompt <span>↗</span></button></article>
-    </div>
-  </div></section>
-
-  <section class="insights-section section-pad" id="insights"><div class="wrap">
-    <div class="section-heading"><div><p class="eyebrow">New in 1.4 · Insights</p><h2>See how you<br>actually speak.</h2></div><p>Words per minute, fixes Waky made for you, your streak and the phrases you say most. Counts only, kept on your PC.</p></div>
-    <div class="ins-card" aria-label="Preview of the Waky Insights panel with example numbers">
-      <div class="ins-stats">
-        <div class="ins-tile"><small>WORDS PER MINUTE</small><div class="ins-row"><b>158</b><span class="ins-dial" aria-hidden="true"></span></div><em>Personal best 191 in one go</em></div>
-        <div class="ins-tile"><small>FIXES MADE BY WAKY</small><b>11,095</b><em>Fillers and wrong words cleaned up</em></div>
-        <div class="ins-tile"><small>TOTAL WORDS DICTATED</small><b>207,973</b><em>4,120 dictations · 2.3 books</em></div>
-      </div>
-      <div class="ins-panel"><div class="ins-head"><b>14 day streak</b><span>Longest 14</span></div><div class="ins-heat" aria-hidden="true"><i class="l1"></i><i class="l1"></i><i class="l0"></i><i class="l2"></i><i class="l3"></i><i class="l0"></i><i class="l0"></i><i class="l1"></i><i class="l0"></i><i class="l3"></i><i class="l0"></i><i class="l0"></i><i class="l1"></i><i class="l2"></i><i class="l0"></i><i class="l0"></i><i class="l1"></i><i class="l0"></i><i class="l0"></i><i class="l0"></i><i class="l0"></i><i class="l1"></i><i class="l0"></i><i class="l1"></i><i class="l3"></i><i class="l3"></i><i class="l0"></i><i class="l0"></i><i class="l2"></i><i class="l2"></i><i class="l2"></i><i class="l1"></i><i class="l4"></i><i class="l1"></i><i class="l3"></i><i class="l2"></i><i class="l2"></i><i class="l1"></i><i class="l0"></i><i class="l2"></i><i class="l0"></i><i class="l1"></i><i class="l1"></i><i class="l3"></i><i class="l2"></i><i class="l2"></i><i class="l3"></i><i class="l1"></i><i class="l2"></i><i class="l4"></i><i class="l0"></i><i class="l2"></i><i class="l4"></i><i class="l2"></i><i class="l4"></i><i class="l2"></i><i class="l3"></i><i class="l0"></i><i class="l0"></i><i class="l1"></i><i class="l2"></i><i class="l2"></i><i class="l0"></i><i class="l3"></i><i class="l0"></i><i class="l0"></i><i class="l3"></i><i class="l0"></i><i class="l2"></i><i class="l2"></i><i class="l1"></i><i class="l0"></i><i class="l0"></i><i class="l1"></i><i class="l3"></i><i class="l0"></i><i class="l0"></i><i class="l0"></i><i class="l3"></i><i class="l1"></i><i class="l3"></i><i class="l4"></i><i class="l1"></i><i class="l4"></i><i class="l2"></i><i class="l2"></i><i class="l0"></i><i class="l1"></i><i class="l0"></i><i class="l2"></i><i class="l0"></i><i class="l1"></i><i class="l0"></i><i class="l3"></i><i class="l0"></i><i class="l1"></i><i class="l0"></i><i class="l0"></i><i class="l4"></i><i class="l0"></i><i class="l2"></i><i class="l1"></i><i class="l2"></i><i class="l2"></i><i class="l0"></i><i class="l0"></i><i class="l2"></i><i class="l4"></i><i class="l0"></i><i class="l0"></i><i class="l3"></i><i class="l4"></i><i class="l1"></i><i class="l2"></i><i class="l1"></i><i class="l2"></i><i class="l1"></i><i class="l1"></i><i class="l3"></i><i class="l1"></i><i class="l1"></i><i class="l2"></i><i class="l1"></i><i class="l0"></i><i class="l4"></i><i class="l0"></i><i class="l0"></i><i class="l0"></i><i class="l0"></i><i class="l2"></i><i class="l4"></i><i class="l2"></i><i class="l0"></i><i class="l0"></i><i class="l2"></i><i class="l0"></i><i class="l3"></i><i class="l2"></i><i class="l2"></i><i class="l1"></i><i class="l1"></i><i class="l4"></i><i class="l2"></i><i class="l2"></i><i class="l2"></i><i class="l0"></i><i class="l4"></i><i class="l2"></i><i class="l1"></i><i class="l1"></i><i class="l1"></i><i class="l0"></i><i class="l4"></i><i class="l0"></i><i class="l2"></i><i class="l2"></i><i class="l0"></i><i class="l1"></i><i class="l0"></i><i class="l4"></i><i class="l0"></i><i class="l1"></i><i class="l1"></i><i class="l1"></i><i class="l0"></i><i class="l0"></i><i class="l3"></i><i class="l3"></i><i class="l2"></i><i class="l2"></i><i class="l2"></i><i class="l3"></i><i class="l3"></i><i class="l2"></i><i class="l2"></i><i class="l2"></i><i class="l3"></i><i class="l2"></i><i class="l2"></i><i class="l2"></i><i class="l2"></i><i class="l2"></i></div></div>
-      <div class="ins-two">
-        <div class="ins-panel"><div class="ins-head"><b>Where you dictate</b></div><div class="ins-bar"><span>Code</span><div><i style="width:84%"></i></div><b>84%</b></div><div class="ins-bar"><span>Browser</span><div><i style="width:9%"></i></div><b>9%</b></div><div class="ins-bar"><span>Chat</span><div><i style="width:4%"></i></div><b>4%</b></div><div class="ins-bar"><span>Documents</span><div><i style="width:2%"></i></div><b>2%</b></div><div class="ins-bar"><span>Email</span><div><i style="width:1%"></i></div><b>1%</b></div></div>
-        <div class="ins-voice"><blockquote>“Make sure it’s pixel perfect”<small>CATCHPHRASE</small></blockquote><div class="ins-pair"><blockquote>“it’s”<small>MOST USED WORD</small></blockquote><blockquote>“like”<small>MOST CORRECTED WORD</small></blockquote></div></div>
-      </div>
-      <p class="ins-note">Example numbers. Your real ones stay on your PC: no audio, no full text, and a Reset button in Settings.</p>
-    </div>
-  </div></section>
-
-  <section class="details-section section-pad" id="privacy"><div class="wrap details-grid">
-    <article class="detail-card privacy-card"><p class="eyebrow">Your voice. Your choice.</p><h2>Cloud when you want.<br>Local when you don’t.</h2><p>Use your own Groq key for cloud speech and writing, or download Whisper and keep speech recognition on your PC.</p><a class="text-link" href="guide.html#offline">How offline mode works <span>↗</span></a><div class="privacy-route"><span><i></i> Your voice</span><b>→</b><span>Groq cloud</span><span class="route-or">or</span><span>Whisper on PC</span></div></article>
-    <article class="detail-card price-card"><p class="eyebrow">No Waky subscription</p><h2>Free to use.<br>Yours to run.</h2><div class="price-list"><div><span>Waky app</span><b>$0</b></div><div><span>Local Whisper</span><b>$0</b></div><div><span>Your cloud usage</span><b>Your key</b></div></div><a class="button button-blue js-download" href="#download" data-download>Download for Windows <span>↗</span></a><p class="system-note">Windows 10 and 11 · No account required</p></article>
-  </div></section>
-
-  <section class="closing-section"><div class="wrap closing-card"><div><p class="eyebrow">Waky is ready when you are</p><h2>Keep the thought.<br><span>Skip the typing.</span></h2></div><a class="button button-blue js-download" href="#download" data-download>Get Waky <span>↗</span></a></div></section>
-  <footer class="site-footer"><div class="wrap footer-main"><a class="brand" href="./"><img src="assets/waky-icon.png" alt="" width="28" height="28"><span>Waky</span></a><p>For people who think faster than they type.</p><nav aria-label="Footer"><a href="guide.html">Setup guide</a><a href="#privacy">Privacy</a><a href="#studio">Demo</a><a href="#" class="js-repo">GitHub</a></nav></div><div class="wrap footer-meta"><span>WAKY <span class="js-version">V1.4.0</span> · WINDOWS 10 + 11</span><span>YOUR VOICE, YOUR FLOW.</span></div></footer>
-  <script src="site-config.js?v=8"></script><script src="waky.js?v=10"></script>
+  <div class="ss-foot"><span>Waky · Windows 10 + 11</span><span>Think it. Say it. Waky writes it.</span></div>
+</section>
+<script src="site-config.js"></script>
+<script>
+(function () {
+  var cfg = window.WAKY || {};
+  document.querySelectorAll(".js-download").forEach(function (a) { if (cfg.downloadUrl) { a.href = cfg.downloadUrl; a.setAttribute("download", ""); } });
+  var els = Array.prototype.slice.call(document.querySelectorAll(".appear, .hero-photo"));
+  els.forEach(function (el) { el.addEventListener("animationend", function (e) { if (e.target === el) el.classList.add("is-in"); }, { once: true }); });
+  requestAnimationFrame(function () { requestAnimationFrame(function () {
+    var ok = els.some(function (el) { return el.getAnimations && el.getAnimations().some(function (a) { return a.playState === "running" || a.playState === "finished"; }); });
+    if (!ok) els.forEach(function (el) { el.classList.add("is-in"); });
+  }); });
+  var body = document.body, burger = document.querySelector(".burger");
+  function set(open) { body.classList.toggle("menu-open", open); burger.setAttribute("aria-expanded", open); burger.setAttribute("aria-label", open ? "Close menu" : "Open menu"); }
+  burger.addEventListener("click", function () { set(!body.classList.contains("menu-open")); });
+  document.querySelectorAll("#site-nav a").forEach(function (a) { a.addEventListener("click", function () { set(false); }); });
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape") set(false); });
+  window.matchMedia("(min-width: 901px)").addEventListener("change", function (m) { if (m.matches) set(false); });
+})();
+</script>
 </body>
 </html>
