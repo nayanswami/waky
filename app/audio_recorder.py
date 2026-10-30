@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+import re
 import threading
 import time
 from collections import deque
@@ -8,6 +9,14 @@ from dataclasses import dataclass
 
 import numpy as np
 import sounddevice as sd
+
+
+BLUETOOTH_NAME = re.compile(r"hands[- ]?free|bluetooth|\bbt\b|buds|airpods|\bpods\b|earbuds|earphones|bullets|\bwh-\w+|\bwf-\w+", re.I)
+
+
+def is_bluetooth_name(name: str) -> bool:
+    """Bluetooth headset microphones switch the headphones to low-quality call sound the moment they are opened."""
+    return bool(BLUETOOTH_NAME.search(name or ""))
 
 
 @dataclass
@@ -68,7 +77,8 @@ class AudioRecorder:
             self.current_sample_rate = sample_rate
             self.current_device = device
             audio_settings = self.settings.setdefault("audio", {})
-            audio_settings.update({"sample_rate": sample_rate, "channels": 1, "microphone": device})
+            audio_settings.update({"sample_rate": sample_rate, "channels": 1})
+            self._note_device(device)
             self._preroll.clear()
             self._preroll_samples = 0
             self.logger.info("Microphone armed sample_rate=%s device=%s", sample_rate, device)
@@ -142,12 +152,49 @@ class AudioRecorder:
                 self.current_device = device
                 audio_settings["sample_rate"] = sample_rate
                 audio_settings["channels"] = 1
-                audio_settings["microphone"] = device
+                self._note_device(device)
                 self.logger.info("Recording started sample_rate=%s device=%s", sample_rate, device)
             except Exception:
                 self.stream = None
                 self.logger.exception("Microphone unavailable")
                 raise
+
+    def _note_device(self, device) -> None:
+        """Remember which device is in use. Only an explicit choice in Settings is written back; Automatic stays automatic."""
+        audio_settings = self.settings.setdefault("audio", {})
+        if audio_settings.get("microphone") is not None:
+            audio_settings["microphone"] = device
+
+    def _preferred_non_bluetooth_input(self) -> int | None:
+        """When Windows' default microphone is a Bluetooth headset, pick the built-in or wired microphone instead."""
+        try:
+            default = self.default_input_device()
+            if not default or not is_bluetooth_name(str(default.get("name", ""))):
+                return None
+            devices = sd.query_devices()
+            default_host = int(devices[int(default["index"])].get("hostapi", -1))
+            best: tuple[int, int] | None = None
+            for index, device in enumerate(devices):
+                name = str(device.get("name", ""))
+                if int(device.get("max_input_channels", 0) or 0) <= 0 or is_bluetooth_name(name):
+                    continue
+                if re.search(r"stereo mix|what u hear|loopback|virtual|cable|voicemeeter", name, re.I):
+                    continue
+                score = 0
+                if int(device.get("hostapi", -1)) == default_host:
+                    score += 20
+                if "microphone array" in name.lower() or "built-in" in name.lower() or "internal" in name.lower():
+                    score += 30
+                elif "microphone" in name.lower() or "mic" in name.lower():
+                    score += 10
+                if best is None or score > best[0]:
+                    best = (score, index)
+            if best:
+                self.logger.info("Default microphone is Bluetooth (%s); using %s instead to keep headphone audio clear", default.get("name"), devices[best[1]].get("name"))
+                return best[1]
+        except Exception:
+            self.logger.warning("Could not look for a non-Bluetooth microphone", exc_info=True)
+        return None
 
     def _device_exists_and_input(self, device: int | None) -> bool:
         if device is None:
@@ -163,6 +210,10 @@ class AudioRecorder:
         audio_settings = self.settings.get("audio", {})
         configured = audio_settings.get("microphone")
         candidates: list[int | None] = []
+        if configured is None:
+            alt = self._preferred_non_bluetooth_input()
+            if alt is not None:
+                candidates.append(alt)
         if self._device_exists_and_input(configured):
             candidates.append(configured)
         else:
@@ -321,7 +372,7 @@ class AudioRecorder:
                     self.current_device = device
                     self.settings.setdefault("audio", {})["sample_rate"] = sample_rate
                     self.settings.setdefault("audio", {})["channels"] = 1
-                    self.settings.setdefault("audio", {})["microphone"] = device
+                    self._note_device(device)
                     self.logger.info("Microphone test finished level=%.4f sample_rate=%s device=%s message=%s", level, sample_rate, device, message)
                     return MicrophoneTestResult(ok=ok, message=message, level=level, sample_rate=sample_rate)
                 except Exception as exc:
@@ -344,7 +395,7 @@ class AudioRecorder:
         audio_settings = self.settings.setdefault("audio", {})
         audio_settings["sample_rate"] = sample_rate
         audio_settings["channels"] = 1
-        audio_settings["microphone"] = device
+        self._note_device(device)
         if audio_settings.get("silence_trimming", True):
             samples = self.trim_silence(samples)
         return AudioResult(samples=samples, sample_rate=sample_rate, duration=seconds)

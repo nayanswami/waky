@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.4.4
+
+- Fixed the real cause of YouTube and music sounding different: when Windows' default microphone is a Bluetooth headset, dictating switched the earbuds to low-quality call sound. Automatic microphone now uses the built-in or wired microphone instead (pick a microphone in Settings > Audio to override).
+
 ## 1.4.3
 
 - Fixed: while Waky was running, YouTube, music and Bluetooth headphones could sound different (like a call was active) until Waky was quit. Waky kept the microphone open all day; it now opens it only while you hold the dictation key. "Instant start" in Settings > Audio brings the old behaviour back.

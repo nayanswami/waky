@@ -575,7 +575,7 @@ class SettingsWindow(QDialog):
         self.test_mic_3s.clicked.connect(lambda: self._test_microphone(3.0))
         mic = Group()
         self.microphone.setFixedWidth(300)
-        mic.addRow("Microphone", self.microphone)
+        mic.addRow("Microphone", self.microphone, hint="Automatic skips a Bluetooth headset microphone when another one is available, so your earbuds keep playing in full quality. Pick a microphone here to override.")
         buttons = FlowLayout(spacing=8)
         for b in (self.refresh_mics, self.test_mic, self.test_mic_3s):
             buttons.addWidget(b)

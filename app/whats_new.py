@@ -13,7 +13,7 @@ RELEASES = (
         "Learn from my fix: correct a dictated sentence, select it and press Ctrl + Alt + L. Waky compares it with what it heard and remembers what you meant, so the same word is right next time.",
         "Hover the pill and a Settings button slides out. Click it to open Settings straight away.",
         "Opening Waky again from the Start menu or a shortcut now opens Settings instead of saying it is already running.",
-        "Fixed: YouTube, music and Bluetooth headphones no longer sound different while Waky runs. Waky now opens the microphone only while you hold the key.",
+        "Fixed: YouTube and music no longer drop to call-quality sound when you dictate with Bluetooth earbuds. Waky now uses your laptop or wired microphone instead of the earbuds' microphone, and only opens it while you hold the key.",
         "The Waky logo is back everywhere: taskbar, tray and installer.",
         "Insights keeps counts only on your PC. No audio and no full text, and you can reset it any time.",
     )),
