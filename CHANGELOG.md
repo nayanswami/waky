@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.4.1
+
+- Opening Waky again (Start menu, desktop shortcut, double-click) now brings up its Settings window instead of saying it is already running.
+
 ## 1.4.0
 
 - New Insights page in Settings: words per minute, fixes made by Waky, total words dictated, day streak with a heatmap, where you dictate, and your catchphrase, most used and most corrected words.

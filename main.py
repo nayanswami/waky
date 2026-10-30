@@ -1011,6 +1011,52 @@ def _already_running() -> bool:
         return False
 
 
+SHOW_SERVER_NAME = "Waky.Dictation.Show"
+
+
+def _ask_running_instance_to_show() -> bool:
+    """Tell the Waky that is already running to open its Settings window. Returns True when it answered."""
+    try:
+        from PySide6.QtCore import QCoreApplication
+        from PySide6.QtNetwork import QLocalSocket
+
+        _core = QCoreApplication.instance() or QCoreApplication(sys.argv)  # noqa: F841
+        if sys.platform == "win32":
+            import ctypes
+
+            ctypes.windll.user32.AllowSetForegroundWindow(-1)  # ASFW_ANY: let the running Waky come to the front
+        socket = QLocalSocket()
+        socket.connectToServer(SHOW_SERVER_NAME)
+        if not socket.waitForConnected(1500):
+            return False
+        socket.write(b"show")
+        socket.waitForBytesWritten(1500)
+        socket.disconnectFromServer()
+        return True
+    except Exception:
+        return False
+
+
+def _start_show_server(controller: "WakyApp") -> None:
+    """Listen for a second launch (double-click, Start menu) and open Settings instead of starting another Waky."""
+    from PySide6.QtNetwork import QLocalServer
+
+    server = QLocalServer(controller)
+    QLocalServer.removeServer(SHOW_SERVER_NAME)
+    if not server.listen(SHOW_SERVER_NAME):
+        return
+
+    def on_connection() -> None:
+        while server.hasPendingConnections():
+            conn = server.nextPendingConnection()
+            conn.readyRead.connect(conn.deleteLater)
+            conn.disconnected.connect(conn.deleteLater)
+        QTimer.singleShot(0, controller.open_settings)
+
+    server.newConnection.connect(on_connection)
+    controller._show_server = server
+
+
 def _message_box(title: str, text: str) -> None:
     try:
         if sys.platform == "win32":
@@ -1041,6 +1087,8 @@ def _install_crash_handlers() -> None:
 
 def main() -> int:
     if _already_running():
+        if _ask_running_instance_to_show():
+            return 0
         _message_box("Waky", "Waky is already running. Look for its icon in the system tray (bottom right of the taskbar).")
         return 0
     _install_crash_handlers()
@@ -1060,6 +1108,7 @@ def main() -> int:
         app.setWindowIcon(QIcon(str(icon_file)))
     controller = WakyApp(app)
     app.aboutToQuit.connect(controller.cleanup)
+    _start_show_server(controller)
     return app.exec()
 
 
