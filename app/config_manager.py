@@ -57,7 +57,7 @@ DEFAULT_SETTINGS: dict[str, Any] = {
         "channels": 1,
         "silence_trimming": True,
         "min_record_seconds": 0.25,
-        "keep_ready": True,
+        "keep_ready": False,   # an always-open mic makes Windows treat Waky as a call: Bluetooth audio and YouTube sound different
         "tail_ms": 300,
     },
     "transcription": {
@@ -304,6 +304,7 @@ class ConfigManager:
         else:
             self.custom_commands = self._load_json(self.custom_commands_path, DEFAULT_CUSTOM_COMMANDS)
         self._repair_hotkey_conflicts()
+        self._release_always_open_mic()
         self._load_secrets()
         self.save_all()
 
@@ -328,6 +329,13 @@ class ConfigManager:
             else:
                 base[key] = value
         return base
+
+    def _release_always_open_mic(self) -> None:
+        """One time: older versions kept the microphone open all day, which changes how other audio sounds. Switch it off."""
+        audio = self.settings.setdefault("audio", {})
+        if not audio.get("keep_ready_reset_v1"):
+            audio["keep_ready"] = False
+            audio["keep_ready_reset_v1"] = True
 
     def _repair_hotkey_conflicts(self) -> None:
         hotkeys = self.settings.setdefault("hotkeys", {})

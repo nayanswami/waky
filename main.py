@@ -181,7 +181,7 @@ class WakyApp(QObject):
             on_lock_changed=self.signals.lock_changed.emit,
         )
         self.hotkeys.start()
-        self._mic_signature = (self.config.get("audio.keep_ready", True), self.config.get("audio.microphone"))
+        self._mic_signature = (self.config.get("audio.keep_ready", False), self.config.get("audio.microphone"))
         self._start_background_warmup()
         self.show_floating_bar(startup=True, reset=False)
 
@@ -317,7 +317,7 @@ class WakyApp(QObject):
         def work() -> None:
             try:
                 local_memory.ensure_memory_files()   # also removes the old built-in seed rules once
-                if self.config.get("audio.keep_ready", True):
+                if self.config.get("audio.keep_ready", False):
                     self.recorder.arm()
                 key = llm_engine.get_api_key(self.config.settings)
                 if key:
@@ -903,7 +903,7 @@ class WakyApp(QObject):
         self.mode_override = self.config.get("output.default_mode", "clean_casual")
         flags = Qt.Tool | Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.WindowDoesNotAcceptFocus
         self.bar.setWindowFlags(flags)
-        signature = (self.config.get("audio.keep_ready", True), self.config.get("audio.microphone"))
+        signature = (self.config.get("audio.keep_ready", False), self.config.get("audio.microphone"))
         if signature != self._mic_signature:
             self._mic_signature = signature
             self.recorder.disarm()

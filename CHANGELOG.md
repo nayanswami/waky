@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.4.3
+
+- Fixed: while Waky was running, YouTube, music and Bluetooth headphones could sound different (like a call was active) until Waky was quit. Waky kept the microphone open all day; it now opens it only while you hold the dictation key. "Instant start" in Settings > Audio brings the old behaviour back.
+
 ## 1.4.2
 
 - Fixed the orange icon: the build was replacing the Waky logo. The taskbar, tray and installer use the blue logo again.
