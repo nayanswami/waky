@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Free — Waky</title><meta name="description" content="Waky is free: no subscription, no account, no trial timer."><meta name="theme-color" content="#000000">
+<link rel="icon" href="assets/waky-icon.png"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900&family=Instrument+Serif:ital@1&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="base.css"><link rel="stylesheet" href="pages.css"></head>
+<body class="sub" style="background:#000;color:#fff">
+<div class="grain"></div>
+<div class="menu-backdrop"></div>
+<header class="header">
+  <a class="logo" href="index.html" aria-label="Waky"><img src="assets/waky-icon.png" alt="" width="22" height="22"><span>Waky</span></a>
+  <nav id="site-nav" aria-label="Primary"><a href="how-it-works.html">How it works</a><a href="modes.html">Modes</a><a href="free.html" aria-current="page">Free</a><a href="guide.html">Guide</a><a href="install.html">Install</a></nav>
+  <a class="btn btn-solid header-cta js-download" href="index.html">Download free</a>
+  <button class="burger" type="button" aria-controls="site-nav" aria-expanded="false" aria-label="Open menu"><span></span><span></span><span></span></button>
+</header>
+<section class="shero"><canvas class="bm-bg" id="band" aria-hidden="true"></canvas>
+<div class="shero-in"><span class="badge">Free</span><h1>Free. <em>Actually free.</em></h1><p class="lede">No subscription, no trial timer and no account to make.</p></div></section>
+<main class="sbody"><div class="freegrid"><div class="ledwrap"><canvas id="led" aria-label="$0"></canvas><p class="mono">Per month · move your cursor through it</p></div>
+<div><ul class="price">
+<li class="bm-card"><div><b>Waky app</b><span>The whole thing, not a demo</span></div><em>$0</em></li>
+<li class="bm-card"><div><b>Local Whisper</b><span>Speech recognition on your own PC</span></div><em>$0</em></li>
+<li class="bm-card"><div><b>Cloud speech</b><span>Bring your own free Groq key</span></div><em>Your key</em></li></ul>
+<div class="cta2"><a class="btn btn-solid js-download" href="index.html">Download free for Windows</a><span class="mono"><span class="js-size">about 113 MB</span> · Windows 10 + 11 · No account</span></div></div></div>
+<div class="grid2 mt"><article class="card bm-card"><span class="mono">Cloud</span><h3>Fast, with your own key</h3><p class="muted">Audio goes to Groq with your key and nowhere else. Waky never stores it. Groq has a free tier; if its limit is reached, Waky can fall back to Whisper on your PC.</p></article>
+<article class="card bm-card"><span class="mono">Local</span><h3>Stays on your PC</h3><p class="muted">Download a Whisper model in Settings → Transcription. Speech recognition then runs offline. Smart rewriting and custom modes still need a Groq key.</p></article>
+<article class="card bm-card"><span class="mono">Private</span><h3>No audio saved</h3><p class="muted">Recordings are never written to disk. Your key lives in Windows Credential Manager, not in a file.</p></article>
+<article class="card bm-card"><span class="mono">No account</span><h3>Nothing to sign up for</h3><p class="muted">No subscription, no trial timer and no Waky account. Download, set a hotkey, start talking.</p></article></div></main>
+<footer class="sfoot"><a class="logo" href="index.html"><img src="assets/waky-icon.png" alt="" width="20" height="20"><span>Waky</span></a><p>For people who think faster than they type.</p><nav><a href="how-it-works.html">How it works</a><a href="modes.html">Modes</a><a href="free.html">Free</a><a href="guide.html">Guide</a><a href="install.html">Install</a><a href="#" class="js-repo">GitHub</a></nav><span>Waky <span class="js-version">V1.4.4</span> · Windows 10 + 11</span></footer>
+<script src="site-config.js"></script><script src="bitmap.js"></script><script src="pages.js"></script>
+</body></html>

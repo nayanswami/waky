@@ -1,0 +1,21 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>How Waky works — Waky</title><meta name="description" content="Hold a key, speak, release. Waky cleans the text and pastes it into any app."><meta name="theme-color" content="#000000">
+<link rel="icon" href="assets/waky-icon.png"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900&family=Instrument+Serif:ital@1&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="base.css"><link rel="stylesheet" href="pages.css"></head>
+<body class="sub" style="background:#000;color:#fff">
+<div class="grain"></div>
+<div class="menu-backdrop"></div>
+<header class="header">
+  <a class="logo" href="index.html" aria-label="Waky"><img src="assets/waky-icon.png" alt="" width="22" height="22"><span>Waky</span></a>
+  <nav id="site-nav" aria-label="Primary"><a href="how-it-works.html" aria-current="page">How it works</a><a href="modes.html">Modes</a><a href="free.html">Free</a><a href="guide.html">Guide</a><a href="install.html">Install</a></nav>
+  <a class="btn btn-solid header-cta js-download" href="index.html">Download free</a>
+  <button class="burger" type="button" aria-controls="site-nav" aria-expanded="false" aria-label="Open menu"><span></span><span></span><span></span></button>
+</header>
+<section class="shero"><canvas class="bm-bg" id="band" aria-hidden="true"></canvas>
+<div class="shero-in"><span class="badge">How it works</span><h1>Hold. Speak. <em>Release.</em></h1><p class="lede">Three moves, no new habits. Everything else happens in the background.</p></div></section>
+<main class="sbody"><div class="rows"><article class="row bm-card"><span class="n">01</span><div><h3>Hold the key</h3><p>Click into any text field, then hold <kbd>Ctrl</kbd> + <kbd>Win</kbd>. No window opens; a small black pill shows Waky is listening. Prefer hands-free? Tap <kbd>F9</kbd> to start and again to stop, or tap the hold key twice to lock it on.</p></div></article><article class="row bm-card"><span class="n">02</span><div><h3>Say it your way</h3><p>Ramble, pause, say “um”. Switch between Hindi and English mid-sentence. Waky removes the filler, fixes punctuation and keeps your meaning. Say a mode out loud (“write email”, “bullet points”) to shape the result.</p></div></article><article class="row bm-card"><span class="n">03</span><div><h3>Let go. It’s written.</h3><p>The clean text is pasted where your cursor is. Waky never presses Enter, so you read it before you send it. Changed your mind? Press <kbd>Esc</kbd> to cancel.</p></div></article></div><div class="split"><div><span class="mono">Under the hood</span><h2>One pass, <em>four stages.</em></h2><p class="muted">Waky does only what it needs to, in this order, on your PC or through your own key.</p></div>
+<ol class="pipe"><li class="bm-card"><b>Speech to text</b><span>Groq cloud with your key, or Whisper on your PC.</span></li><li class="bm-card"><b>Clean-up</b><span>Fillers out, wording fixed, vocabulary and corrections applied.</span></li><li class="bm-card"><b>Modes and snippets</b><span>Spoken modes, your snippets and per-app profiles.</span></li><li class="bm-card"><b>Paste</b><span>Into the active field. Never Enter.</span></li></ol></div></main>
+<footer class="sfoot"><a class="logo" href="index.html"><img src="assets/waky-icon.png" alt="" width="20" height="20"><span>Waky</span></a><p>For people who think faster than they type.</p><nav><a href="how-it-works.html">How it works</a><a href="modes.html">Modes</a><a href="free.html">Free</a><a href="guide.html">Guide</a><a href="install.html">Install</a><a href="#" class="js-repo">GitHub</a></nav><span>Waky <span class="js-version">V1.4.4</span> · Windows 10 + 11</span></footer>
+<script src="site-config.js"></script><script src="bitmap.js"></script><script src="pages.js"></script>
+</body></html>
