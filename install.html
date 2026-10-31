@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Install help — Waky</title><meta name="description" content="How to get past the Windows SmartScreen warning, verify the download and change your Groq key."><meta name="theme-color" content="#000000">
+<link rel="icon" href="assets/waky-icon.png"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900&family=Instrument+Serif:ital@1&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="base.css"><link rel="stylesheet" href="pages.css"></head>
+<body class="sub" style="background:#000;color:#fff">
+<div class="grain"></div>
+<div class="menu-backdrop"></div>
+<header class="header">
+  <a class="logo" href="index.html" aria-label="Waky"><img src="assets/waky-icon.png" alt="" width="22" height="22"><span>Waky</span></a>
+  <nav id="site-nav" aria-label="Primary"><a href="how-it-works.html">How it works</a><a href="modes.html">Modes</a><a href="free.html">Free</a><a href="guide.html">Guide</a><a href="install.html" aria-current="page">Install</a></nav>
+  <a class="btn btn-solid header-cta js-download" href="index.html">Download free</a>
+  <button class="burger" type="button" aria-controls="site-nav" aria-expanded="false" aria-label="Open menu"><span></span><span></span><span></span></button>
+</header>
+<section class="shero"><canvas class="bm-bg" id="band" aria-hidden="true"></canvas>
+<div class="shero-in"><span class="badge">Install help</span><h1>Windows protected your PC? <em>Two clicks.</em></h1><p class="lede">Waky is new, so SmartScreen warns about it. Here’s the way through.</p></div></section>
+<main class="sbody"><div class="grid2"><div><p class="cap"><b>1</b>Click <strong>More info</strong></p><div class="dlg"><span class="x">×</span><h3>Windows protected your PC</h3><p>Microsoft Defender SmartScreen prevented an unrecognized app from starting. Running this app might put your PC at risk.</p><span class="mi pulse">More info</span><div class="btns"><span class="b">Don’t run</span></div></div></div><div><p class="cap"><b>2</b>Click <strong>Run anyway</strong></p><div class="dlg"><span class="x">×</span><h3>Windows protected your PC</h3><p>Microsoft Defender SmartScreen prevented an unrecognized app from starting. Running this app might put your PC at risk.</p><div class="kv"><span>App:</span><span>Waky-Setup.exe</span><span>Publisher:</span><span>Unknown publisher</span></div><div class="btns"><span class="b pulse">Run anyway</span><span class="b">Don’t run</span></div></div></div></div>
+<div class="grid2 mt"><article class="card bm-card"><span class="mono">Why this happens</span><h3>The installer isn’t code-signed yet</h3><p class="muted">Windows SmartScreen warns about every new app. The installer is per-user, so it never asks for administrator rights.</p></article>
+<article class="card bm-card"><span class="mono">Check the file</span><h3>Verify the download</h3><p class="muted">In PowerShell, run <code>Get-FileHash .\Waky-Setup.exe</code>. The result should match the SHA-256 published with each release.</p><p><a href="guide.html#verify">Verify your download →</a></p></article>
+<article class="card bm-card"><span class="mono">Change your key</span><h3>Update your Groq key</h3><p class="muted">Settings → Privacy → API keys. Paste the new key into Groq API key and press Save. No reinstall needed.</p></article>
+<article class="card bm-card"><span class="mono">Uninstall</span><h3>Keeps your data</h3><p class="muted">Uninstalling removes the app and its startup entry but keeps your settings, so a reinstall picks up where you left off.</p></article></div></main>
+<footer class="sfoot"><a class="logo" href="index.html"><img src="assets/waky-icon.png" alt="" width="20" height="20"><span>Waky</span></a><p>For people who think faster than they type.</p><nav><a href="how-it-works.html">How it works</a><a href="modes.html">Modes</a><a href="free.html">Free</a><a href="guide.html">Guide</a><a href="install.html">Install</a><a href="#" class="js-repo">GitHub</a></nav><span>Waky <span class="js-version">V1.4.4</span> · Windows 10 + 11</span></footer>
+<script src="site-config.js"></script><script src="bitmap.js"></script><script src="pages.js"></script>
+</body></html>

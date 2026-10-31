@@ -1,17 +1,20 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Waky setup guide</title><meta name="description" content="Install Waky, get a free Groq API key, pick your hotkey, build custom modes, and fix common problems.">
-<meta name="theme-color" content="#02050f"><link rel="icon" href="assets/waky-icon.png">
-<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="styles.css"></head>
-<body>
-<header class="nav scrolled" id="nav"><nav class="nav-in" aria-label="Main">
-<a class="brand" href="index.html" aria-label="Waky home"><img src="assets/waky-icon.png" alt="" width="24" height="24"><span>Waky</span></a>
-<a class="nl" href="index.html#smartscreen">Install help</a><a class="nl" href="guide.html">Guide</a>
-<a class="btn btn-nav js-download" href="index.html">Download</a></nav></header>
-<main class="guide-wrap"><div class="wrap gdoc">
-<nav class="toc" aria-label="On this page">
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Setup guide — Waky</title><meta name="description" content="Install Waky, get a free Groq key, pick your hotkey, build custom modes and fix common problems."><meta name="theme-color" content="#000000">
+<link rel="icon" href="assets/waky-icon.png"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900&family=Instrument+Serif:ital@1&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="base.css"><link rel="stylesheet" href="pages.css"></head>
+<body class="sub" style="background:#000;color:#fff">
+<div class="grain"></div>
+<div class="menu-backdrop"></div>
+<header class="header">
+  <a class="logo" href="index.html" aria-label="Waky"><img src="assets/waky-icon.png" alt="" width="22" height="22"><span>Waky</span></a>
+  <nav id="site-nav" aria-label="Primary"><a href="how-it-works.html">How it works</a><a href="modes.html">Modes</a><a href="free.html">Free</a><a href="guide.html" aria-current="page">Guide</a><a href="install.html">Install</a></nav>
+  <a class="btn btn-solid header-cta js-download" href="index.html">Download free</a>
+  <button class="burger" type="button" aria-controls="site-nav" aria-expanded="false" aria-label="Open menu"><span></span><span></span><span></span></button>
+</header>
+<section class="shero"><canvas class="bm-bg" id="band" aria-hidden="true"></canvas>
+<div class="shero-in"><span class="badge">Setup guide</span><h1>From download to <em>first dictation.</em></h1><p class="lede">About two minutes. You need a Windows PC, a microphone, and a free Groq account, or skip Groq and run fully offline.</p></div></section>
+<main class="sbody"><div class="gdoc"><nav class="toc" aria-label="On this page">
         <a href="#install">Install</a>
         <a href="#verify">Verify download</a>
         <a href="#groq">Get a Groq key</a>
@@ -22,10 +25,8 @@
         <a href="#offline">Offline fallback</a>
         <a href="#fix">Troubleshooting</a>
         <a href="#data">Your data</a>
-      </nav>
-<article class="prose">
-        <p class="eyebrow">Setup guide</p>
-        <h1>From download to your first dictation.</h1>
+      </nav><article class="prose">
+        
         <p>About two minutes. You need a Windows 11 PC, a microphone, and a free Groq account (or skip Groq and run fully offline).</p>
 
         <h2 id="install">1. Install</h2>
@@ -132,9 +133,7 @@
 
         <h2 id="data">Your data</h2>
         <p>Settings, custom modes, vocabulary and memory live in <code>%APPDATA%\Waky</code>. Your API key is in Windows Credential Manager. Uninstalling removes the app and its startup entry but keeps this data, so a reinstall picks up where you left off. Delete the folder to remove everything.</p>
-      </article>
-</div></main>
-<footer class="foot"><div class="wrap foot-in"><a class="brand" href="index.html"><img src="assets/waky-icon.png" alt="" width="22" height="22"><span>Waky</span></a><p>For people who think faster than they type.</p><nav aria-label="Footer"><a href="index.html">Home</a><a href="index.html#smartscreen">Install help</a></nav><span class="mono foot-meta">WAKY · WINDOWS 10 + 11</span></div></footer>
-<script src="site-config.js"></script>
-<script>(function(c){document.querySelectorAll(".js-sha").forEach(function(e){if(c.sha256)e.textContent=c.sha256});document.querySelectorAll(".js-download").forEach(function(a){if(c.downloadUrl){a.href=c.downloadUrl;a.setAttribute("download","")}})})(window.WAKY||{});</script>
+      </article></div></main>
+<footer class="sfoot"><a class="logo" href="index.html"><img src="assets/waky-icon.png" alt="" width="20" height="20"><span>Waky</span></a><p>For people who think faster than they type.</p><nav><a href="how-it-works.html">How it works</a><a href="modes.html">Modes</a><a href="free.html">Free</a><a href="guide.html">Guide</a><a href="install.html">Install</a><a href="#" class="js-repo">GitHub</a></nav><span>Waky <span class="js-version">V1.4.4</span> · Windows 10 + 11</span></footer>
+<script src="site-config.js"></script><script src="bitmap.js"></script><script src="pages.js"></script>
 </body></html>
