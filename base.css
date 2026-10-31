@@ -439,3 +439,14 @@ h1 em,.lsec h2 em,.fl-left h2 em,.cta-band h2 em{color:#9a9a9a!important}
 .leo-c{left:auto!important;right:-1%!important;bottom:5%!important;width:94%!important;opacity:.95!important}
 .hero-photo::after{background:linear-gradient(90deg,rgba(0,0,0,.7) 0%,rgba(0,0,0,.25) 28%,rgba(0,0,0,0) 45%)!important}
 @media (max-width:900px){.leo-c{width:150%!important;right:-25%!important;bottom:10%!important;opacity:.6!important}}
+/* ===== mobile hero fix: copy on top, leopard fully visible below ===== */
+@media (max-width:900px){
+  .hero{align-items:flex-start!important;justify-content:center!important;padding:104px 20px 0!important;min-height:0!important;height:calc(100svh - 0px)!important}
+  .hero-copy{align-items:center;text-align:center}
+  .hero h1{font-size:clamp(40px,11vw,60px)!important}
+  .leo-c{left:0!important;right:0!important;width:100%!important;bottom:9%!important;opacity:.95!important}
+  .hero-photo::after{background:linear-gradient(180deg,rgba(0,0,0,.25),rgba(0,0,0,0) 45%)!important}
+  .page>.stats{display:none!important}
+  .hero-actions{width:100%}
+}
+@media (min-width:560px) and (max-width:900px){.page>.stats{display:flex!important;flex-direction:row!important;gap:12px!important;padding:12px 20px 18px!important;font-size:12.5px}.page>.stats .stat{white-space:normal;font-size:12.5px}}
