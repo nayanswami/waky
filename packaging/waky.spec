@@ -6,7 +6,7 @@ binaries = []
 hiddenimports = ["pynput.keyboard._win32", "pynput.mouse._win32", "win32ctypes.core"]
 
 # Packages that ship data files / native libs PyInstaller cannot discover by import alone.
-for package in ("faster_whisper", "ctranslate2", "onnxruntime", "tokenizers", "av"):
+for package in ("faster_whisper", "ctranslate2", "onnxruntime", "tokenizers", "av", "comtypes"):
     pkg_datas, pkg_binaries, pkg_hidden = collect_all(package)
     datas += pkg_datas
     binaries += pkg_binaries

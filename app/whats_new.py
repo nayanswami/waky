@@ -8,6 +8,16 @@ from . import __version__
 
 # Newest first. The first entry is the one the dialog leads with.
 RELEASES = (
+    ("1.4.5", "Smarter, snappier, learns by itself", (
+        "No more phantom \"Thank you\" after you stop talking.",
+        "Waky learns from your edits automatically: fix a word in what it just pasted and a notice confirms what it saved.",
+        "Smart language: English stays English, Hindi is written as Hinglish. Change it in Settings > Transcription.",
+        "It follows your style, like whether you end messages with a full stop.",
+        "Faster results for short phrases, and more precise punctuation.",
+        "A new pill: it follows your voice while listening, shimmers while thinking, and lights its dots green or red when it is done. Pick Fluid, Playful, Calm or Minimal and set how buttery it feels in Settings > Floating Bar.",
+        "New notification cards that slide in from the corner instead of plain Windows balloons.",
+        "Insights shows the real app names (Brave, WhatsApp, Claude...), your busiest hours, typing time saved and more.",
+    )),
     ("1.4", "Insights and learning from your fixes", (
         "Insights page in Settings: words per minute, fixes made by Waky, total words dictated, your day streak, where you dictate, and the phrases you say most.",
         "Learn from my fix: correct a dictated sentence, select it and press Ctrl + Alt + L. Waky compares it with what it heard and remembers what you meant, so the same word is right next time.",

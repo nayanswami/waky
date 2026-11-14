@@ -45,6 +45,7 @@ MODE_LABELS = {
 }
 
 LANGUAGE_LABELS = {
+    "smart": "Smart: English stays English, Hindi follows the setting below",
     "auto": "Auto",
     "english": "English",
     "hindi": "Hindi",

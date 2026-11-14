@@ -36,6 +36,30 @@ def _tokens(text: str) -> list[str]:
     return re.findall(r"[\w][\w'\-]*", text.lower())
 
 
+APP_NAMES = {
+    "brave": "Brave", "chrome": "Chrome", "msedge": "Edge", "firefox": "Firefox", "opera": "Opera", "vivaldi": "Vivaldi", "arc": "Arc",
+    "whatsapp": "WhatsApp", "whatsapp.root": "WhatsApp", "telegram": "Telegram", "slack": "Slack", "discord": "Discord", "teams": "Teams",
+    "ms-teams": "Teams", "signal": "Signal", "messenger": "Messenger", "outlook": "Outlook", "olk": "Outlook", "thunderbird": "Thunderbird",
+    "code": "VS Code", "cursor": "Cursor", "devenv": "Visual Studio", "pycharm64": "PyCharm", "pycharm": "PyCharm", "idea64": "IntelliJ",
+    "windowsterminal": "Terminal", "wt": "Terminal", "cmd": "Command Prompt", "powershell": "PowerShell", "pwsh": "PowerShell",
+    "claude": "Claude", "codex": "Codex", "chatgpt": "ChatGPT", "notion": "Notion", "obsidian": "Obsidian", "winword": "Word",
+    "excel": "Excel", "powerpnt": "PowerPoint", "onenote": "OneNote", "notepad": "Notepad", "figma": "Figma", "photoshop": "Photoshop",
+    "explorer": "File Explorer", "antigravity": "Antigravity", "windsurf": "Windsurf", "zed": "Zed", "sublime_text": "Sublime Text",
+    "linear": "Linear", "spotify": "Spotify", "zoom": "Zoom", "canva": "Canva", "trae": "Trae",
+}
+
+
+def app_label(exe: str) -> str:
+    """The app's real name for the Insights page: brave.exe becomes Brave, winword.exe becomes Word."""
+    stem = (exe or "").lower().removesuffix(".exe")
+    if not stem:
+        return "Other"
+    if stem in APP_NAMES:
+        return APP_NAMES[stem]
+    pretty = re.sub(r"[_\-.]+", " ", stem).strip()
+    return pretty.title() if pretty else "Other"
+
+
 def category_for(exe: str) -> str:
     stem = (exe or "").lower().removesuffix(".exe")
     for name, stems in APP_CATEGORIES.items():
@@ -74,6 +98,7 @@ class Stats:
         return {
             "total_words": 0, "dictations": 0, "seconds": 0.0, "fixes": 0, "taught": 0, "best_wpm": 0,
             "since": date.today().isoformat(), "days": {}, "apps": {}, "words": {}, "phrases": {}, "corrected": {},
+            "app_names": {}, "hours": {}, "weekdays": {}, "longest": 0, "longest_seconds": 0.0,
         }
 
     def _load(self) -> None:
@@ -97,7 +122,7 @@ class Stats:
             LOGGER.warning("[STATS] could not save", exc_info=True)
 
     # ---------- recording ----------
-    def record(self, heard: str, written: str, seconds: float, app_exe: str = "", track_phrases: bool = True, when: date | None = None) -> None:
+    def record(self, heard: str, written: str, seconds: float, app_exe: str = "", track_phrases: bool = True, when: date | None = None, hour: int | None = None) -> None:
         words = _tokens(written)
         if not words:
             return
@@ -115,6 +140,15 @@ class Stats:
                     del d["days"][old]
             category = category_for(app_exe)
             d["apps"][category] = d["apps"].get(category, 0) + 1
+            name = app_label(app_exe)
+            d["app_names"][name] = d["app_names"].get(name, 0) + len(words)
+            h = str(datetime.now().hour if hour is None else hour)
+            d["hours"][h] = d["hours"].get(h, 0) + len(words)
+            wd = str((when or date.today()).weekday())
+            d["weekdays"][wd] = d["weekdays"].get(wd, 0) + len(words)
+            if len(words) > int(d.get("longest", 0)):
+                d["longest"] = len(words)
+                d["longest_seconds"] = float(seconds or 0)
             changed = corrected_words(heard, written) if heard else []
             d["fixes"] += len(changed)
             if track_phrases:
@@ -207,6 +241,44 @@ class Stats:
                 col.append((day, days.get(day.isoformat(), 0) if day <= today else -1))
             grid.append(col)
         return grid
+
+    # ---------- more ways to look at it ----------
+    def words_on(self, day: date) -> int:
+        return int(self.data["days"].get(day.isoformat(), 0))
+
+    def words_this_week(self, today: date | None = None) -> int:
+        today = today or date.today()
+        monday = today - timedelta(days=today.weekday())
+        return sum(self.words_on(monday + timedelta(days=i)) for i in range(7))
+
+    def avg_words(self) -> int:
+        n = int(self.data["dictations"])
+        return round(self.data["total_words"] / n) if n else 0
+
+    def minutes_saved(self, typing_wpm: int = 40) -> float:
+        """Typing time you skipped: what the words would take at 40 wpm, minus the time you spent speaking."""
+        spoken = float(self.data["seconds"]) / 60
+        return max(0.0, self.data["total_words"] / typing_wpm - spoken)
+
+    def unique_words(self) -> int:
+        return len(self.data["words"])
+
+    def busiest_hour(self) -> int | None:
+        hours = self.data["hours"]
+        return int(max(hours, key=hours.get)) if hours else None
+
+    def busiest_weekday(self) -> int | None:
+        days = self.data["weekdays"]
+        return int(max(days, key=days.get)) if days else None
+
+    def hour_totals(self) -> list[int]:
+        return [int(self.data["hours"].get(str(h), 0)) for h in range(24)]
+
+    def named_apps(self, limit: int = 6) -> list[tuple[str, int, float]]:
+        apps = self.data["app_names"]
+        total = sum(apps.values()) or 1
+        ranked = sorted(apps.items(), key=lambda kv: kv[1], reverse=True)[:limit]
+        return [(name, count, count * 100 / total) for name, count in ranked]
 
     def books_written(self) -> float:
         return self.data["total_words"] / 90000

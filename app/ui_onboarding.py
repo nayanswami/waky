@@ -21,7 +21,7 @@ from PySide6.QtWidgets import (
 )
 
 from . import hotkeys, ios_theme, llm_engine, pill_styles, system_check
-from .ios_widgets import AnimatedStack, Group, IOSSwitch, KeyCaps, PillPreview, Segmented, StyleCard
+from .ios_widgets import AnimatedStack, DitherImage, Group, IOSSwitch, KeyCaps, PillPreview, Segmented, StyleCard
 from .onboarding_kit import (
     INK,
     WIZARD_QSS,
@@ -163,6 +163,10 @@ class OnboardingWizard(QDialog):
             [("g", "Say it messy."), ("k", "Get it"), ("c", tile_label(MIC, "#FFFFFF", "#FF3B30", 50)), ("k", "written.")],
             "Hold a key, speak naturally, and finished text appears in any app. Setup takes about two minutes.",
         )
+        from .utils import asset_path as _asset
+
+        layout.addWidget(DitherImage(str(_asset("statue-bitmap.png")), 170, 0.36))
+        layout.addSpacing(14)
         row = QHBoxLayout()
         row.setSpacing(16)
         for glyph, title, text in (

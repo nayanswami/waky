@@ -55,7 +55,7 @@ from .hotkeys import pretty_combo
 from .ios_widgets import IOSSwitch as QCheckBox
 from .ui_insights import InsightsPage
 from .whats_new import WhatsNewDialog
-from .ios_widgets import FlowLayout, Group, PageStack, PillPreview, Segmented, StyleCard, glyph_pixmap, section_label
+from .ios_widgets import DitherBanner, FlowLayout, Group, PageStack, PillPreview, Segmented, StyleCard, glyph_pixmap, section_label
 from .startup_manager import StartupManager
 from .ui_widgets import HotkeyEdit
 from .utils import LANGUAGE_LABELS, LOG_DIR, MODE_LABELS, asset_path
@@ -244,7 +244,7 @@ class SettingsWindow(QDialog):
         return descriptions.get(title, "Adjust Waky settings.")
 
     # ---------- page building helpers ----------
-    def _page(self) -> tuple[QWidget, QVBoxLayout]:
+    def _page(self, banner: bool = True) -> tuple[QWidget, QVBoxLayout]:
         page = QWidget()
         lay = QVBoxLayout(page)
         lay.setContentsMargins(0, 0, 0, 0)
@@ -283,6 +283,8 @@ class SettingsWindow(QDialog):
         startup = Group()
         startup.addRow(self.launch_startup, hint="Waky opens quietly in the tray and the pill appears. No window pops up.")
         startup.addRow(self.show_floating_bar_on_startup)
+        self.waky_notifications = QCheckBox("Waky-style notifications")
+        startup.addRow(self.waky_notifications, hint="A small card slides in from the corner. Off uses plain Windows notifications.")
         self._block(lay, "Startup", startup)
         feel = Group()
         feel.addRow(self.sound_effects, hint="Soft tones when recording starts, stops and finishes.")
@@ -303,9 +305,36 @@ class SettingsWindow(QDialog):
         accent = fb.get("accent", pill_styles.DEFAULT_ACCENT)
         self._fb_loading = False
 
-        self.fb_preview = PillPreview(fb.get("style", pill_styles.DEFAULT_STYLE), accent, 1.0)
+        self.fb_preview = PillPreview(fb.get("style", pill_styles.DEFAULT_STYLE), accent, 1.0, demo=True)
         self.fb_preview.setFixedHeight(92)
         lay.addWidget(self.fb_preview)
+
+        motion = Group()
+        self.fb_motion = Segmented([(m.key, m.label) for m in pill_styles.MOTIONS.values()], pill_styles.DEFAULT_MOTION)
+        self.fb_motion.changed.connect(self._fb_motion_changed)
+        motion.addRow("Animation", self.fb_motion)
+        self.fb_motion_note = QLabel("")
+        self.fb_motion_note.setObjectName("caption")
+        motion.addRow(self.fb_motion_note)
+        smooth_host = QWidget()
+        smrow = QHBoxLayout(smooth_host)
+        smrow.setContentsMargins(0, 0, 0, 0)
+        snappy = QLabel("Snappy")
+        snappy.setObjectName("caption")
+        buttery = QLabel("Buttery")
+        buttery.setObjectName("caption")
+        self.fb_smooth = QSlider(Qt.Horizontal)
+        self.fb_smooth.setRange(0, 100)
+        self.fb_smooth.setFixedWidth(190)
+        self.fb_smooth.valueChanged.connect(self._fb_motion_changed)
+        smrow.addWidget(snappy)
+        smrow.addWidget(self.fb_smooth)
+        smrow.addWidget(buttery)
+        motion.addRow("Smoothness", smooth_host)
+        self.fb_react = QCheckBox("Bars follow my voice")
+        self.fb_react.toggled.connect(self._fb_motion_changed)
+        motion.addRow(self.fb_react, hint="The listening bars rise and fall with how loud you speak. Off gives a steady wave.")
+        self._block(lay, "Motion", motion)
 
         show = Group()
         self.fb_visibility = Segmented([("always", "Always"), ("active", "While dictating"), ("hidden", "Hidden")], "always")
@@ -449,6 +478,33 @@ class SettingsWindow(QDialog):
         visibility = fb.get("visibility", "always")
         self.fb_visibility.set_value(visibility if visibility in self.VISIBILITY_NOTES else "always", animate=False)
         self.fb_visibility_note.setText(self.VISIBILITY_NOTES.get(self.fb_visibility.value(), ""))
+        motion = fb.get("motion", pill_styles.DEFAULT_MOTION)
+        was_loading, self._fb_loading = self._fb_loading, True   # setting the controls must not write back half-loaded values
+        self.fb_motion.set_value(motion if motion in pill_styles.MOTIONS else pill_styles.DEFAULT_MOTION, animate=False)
+        self.fb_motion_note.setText(pill_styles.get_motion(self.fb_motion.value()).blurb)
+        self.fb_smooth.blockSignals(True)
+        self.fb_smooth.setValue(int(fb.get("smoothness", pill_styles.DEFAULT_SMOOTHNESS)))
+        self.fb_smooth.blockSignals(False)
+        self.fb_react.blockSignals(True)
+        self.fb_react.setChecked(bool(fb.get("react_to_voice", True)))
+        self.fb_react.blockSignals(False)
+        self._fb_loading = was_loading
+        self.fb_preview.set_motion(self.fb_motion.value(), self.fb_smooth.value(), self.fb_react.isChecked())
+        for card in self.style_cards.values():
+            card.preview.set_motion(self.fb_motion.value(), self.fb_smooth.value(), self.fb_react.isChecked())
+
+    def _fb_motion_changed(self, *_args) -> None:
+        if self._fb_loading:
+            return
+        fb = self._fb_settings()
+        fb["motion"] = self.fb_motion.value()
+        fb["smoothness"] = self.fb_smooth.value()
+        fb["react_to_voice"] = self.fb_react.isChecked()
+        self.fb_motion_note.setText(pill_styles.get_motion(fb["motion"]).blurb)
+        self.fb_preview.set_motion(fb["motion"], fb["smoothness"], fb["react_to_voice"])
+        for card in self.style_cards.values():
+            card.preview.set_motion(fb["motion"], fb["smoothness"], fb["react_to_voice"])
+        self._fb_commit()
 
     def _fb_visibility_changed(self, key: str) -> None:
         fb = self._fb_settings()
@@ -625,6 +681,11 @@ class SettingsWindow(QDialog):
         main.addRow("Backend", self.backend)
         main.addRow("Groq model", self.groq_model)
         main.addRow("Language", self.language_mode)
+        self.hindi_output = QComboBox()
+        self.hindi_output.addItem("Hinglish (Hindi in Roman letters)", "hinglish")
+        self.hindi_output.addItem("English (translate)", "english")
+        self.hindi_output.addItem("Hindi script (Devanagari)", "native")
+        main.addRow("When you speak Hindi", self.hindi_output)
         main.addRow("Accuracy preset", self.speed_mode)
         main.addRow(self.backend_display)
         self._block(lay, "Speech to text", main)
@@ -969,7 +1030,7 @@ class SettingsWindow(QDialog):
     # ---------- Insights ----------
     def _insights_tab(self) -> None:
         self.stats = None
-        page, lay = self._page()
+        page, lay = self._page(banner=False)
         self.insights = InsightsPage()
         self.insights.reset_requested.connect(self._reset_insights)
         lay.addWidget(self.insights)
@@ -1009,6 +1070,8 @@ class SettingsWindow(QDialog):
         self.keep_history = QCheckBox("Remember recent dictations on this PC")
         top = Group()
         top.addRow(self.keep_history, hint="Text only, never audio. Stored on this PC, the latest 200. Turn off to keep nothing.")
+        self.auto_learn = QCheckBox("Learn from my edits automatically")
+        top.addRow(self.auto_learn, hint="After Waky pastes, it watches that text box for a short while. If you fix a word, it remembers it and tells you. Nothing is saved except the corrected words.")
         self._block(lay, None, top)
 
         self.history_list = QListWidget()
@@ -1191,7 +1254,7 @@ class SettingsWindow(QDialog):
             "openrouter": keys.addRow("OpenRouter API key", self.openrouter_key),
         }
         self._provider_group = keys
-        self._block(lay, "Providers", keys, "Keys are stored in Windows Credential Manager, never in plain text on disk.")
+        self._block(lay, "API keys", keys, "Change your Groq key any time: paste the new one and press Save. Keys are stored in Windows Credential Manager, never in plain text on disk.")
         logs = Group()
         logs.addRow("Logs level", self.logs_level)
         logs.addRow(self.include_transcript_logs)
@@ -1426,6 +1489,7 @@ class SettingsWindow(QDialog):
         self.start_minimized.setChecked(general["start_minimized"])
         self.start_hidden_no_terminal.setChecked(general.get("start_hidden_no_terminal", True))
         self.show_floating_bar_on_startup.setChecked(general.get("show_floating_bar_on_startup", True))
+        self.waky_notifications.setChecked(general.get("waky_notifications", True))
         self.sound_effects.setChecked(general["sound_effects"])
         self.always_on_top.setChecked(general["always_on_top"])
         self.appearance.set_value(general.get("appearance", "light"), animate=False)
@@ -1441,6 +1505,7 @@ class SettingsWindow(QDialog):
         self._reload_profile_list()
         self.update_auto.setChecked(s.get("updates", {}).get("auto_check", True))
         self.keep_history.setChecked(s.get("privacy", {}).get("keep_history", True))
+        self.auto_learn.setChecked(s.get("general", {}).get("auto_learn", True))
         self._refresh_help()
         self.trim_silence.setChecked(s["audio"]["silence_trimming"])
         self.keep_ready.setChecked(s["audio"].get("keep_ready", False))
@@ -1451,6 +1516,7 @@ class SettingsWindow(QDialog):
         self.safe_mode_implementation.setCurrentIndex(max(0, self.safe_mode_implementation.findData(s["transcription"].get("safe_mode_implementation", "isolated_subprocess"))))
         self.speed_mode.setCurrentText(s["transcription"]["speed_mode"])
         self.language_mode.setCurrentIndex(max(0, self.language_mode.findData(s["transcription"]["language_mode"])))
+        self.hindi_output.setCurrentIndex(max(0, self.hindi_output.findData(s["transcription"].get("hindi_output", "hinglish"))))
         self.default_mode.setCurrentIndex(max(0, self.default_mode.findData(s["output"]["default_mode"])))
         style = s["output"].get("writing_style", "clean")
         self.writing_style.set_value(style if style in self.STYLE_NOTES else "clean", animate=False)
@@ -1507,6 +1573,7 @@ class SettingsWindow(QDialog):
                 "start_minimized": self.start_minimized.isChecked(),
                 "start_hidden_no_terminal": self.start_hidden_no_terminal.isChecked(),
                 "show_floating_bar_on_startup": self.show_floating_bar_on_startup.isChecked(),
+                "waky_notifications": self.waky_notifications.isChecked(),
                 "sound_effects": self.sound_effects.isChecked(),
                 "always_on_top": self.always_on_top.isChecked(),
                 "appearance": self.appearance.value() or "system",
@@ -1527,6 +1594,7 @@ class SettingsWindow(QDialog):
         s.setdefault("app_profiles", {"items": []})["enabled"] = self.profiles_enabled.isChecked()
         s.setdefault("updates", {})["auto_check"] = self.update_auto.isChecked()
         s["privacy"]["keep_history"] = self.keep_history.isChecked()
+        s.setdefault("general", {})["auto_learn"] = self.auto_learn.isChecked()
         s["audio"]["microphone"] = self.microphone.currentData()
         s["audio"]["silence_trimming"] = self.trim_silence.isChecked()
         s["audio"]["keep_ready"] = self.keep_ready.isChecked()
@@ -1536,6 +1604,7 @@ class SettingsWindow(QDialog):
         s["transcription"]["engine_mode"] = self.engine_mode.currentData()
         s["transcription"]["safe_mode_implementation"] = self.safe_mode_implementation.currentData()
         s["transcription"]["language_mode"] = self.language_mode.currentData()
+        s["transcription"]["hindi_output"] = self.hindi_output.currentData()
         s["transcription"]["speed_mode"] = self.speed_mode.currentText()
         s["output"]["default_mode"] = self.default_mode.currentData()
         s["output"]["writing_style"] = self.writing_style.value()
@@ -2101,4 +2170,4 @@ class SettingsWindow(QDialog):
     def _update_provider_visibility(self) -> None:
         selected = self.provider.currentText()
         for name, row in self._provider_rows.items():
-            self._provider_group.set_row_visible(row, selected == name)
+            self._provider_group.set_row_visible(row, selected == name or name == "groq")  # the Groq key is always editable here

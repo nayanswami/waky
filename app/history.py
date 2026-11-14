@@ -77,6 +77,10 @@ def learn(pairs: list[tuple[str, str]]) -> int:
         if not wrong or not right:
             continue
         if _core(wrong) == _core(right):   # only the casing changed: remember the spelling
+            from .stats import STOP_WORDS
+
+            if _core(right) in STOP_WORDS:   # capitalising "the" everywhere would be worse than the one-off fix
+                continue
             local_memory.add_vocabulary_item(right, "Taught from history")
         else:
             local_memory.add_correction(wrong, right, "Taught from history")

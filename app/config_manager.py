@@ -12,6 +12,8 @@ from .utils import CONFIG_DIR
 
 DEFAULT_SETTINGS: dict[str, Any] = {
     "general": {
+        "auto_learn": True,
+        "waky_notifications": True,
         "launch_on_startup": True,
         "start_minimized": False,
         "start_hidden_no_terminal": True,
@@ -38,6 +40,9 @@ DEFAULT_SETTINGS: dict[str, Any] = {
         "anchor": "bottom_center",
         "margin": 40,
         "alt_drag_only": True,
+        "motion": "fluid",
+        "smoothness": 65,
+        "react_to_voice": True,
         "visible": True,
         "hidden": False,
     },
@@ -64,7 +69,8 @@ DEFAULT_SETTINGS: dict[str, Any] = {
         "backend": "auto_fallback",
         "groq_model": "whisper-large-v3-turbo",
         "model": "base",
-        "language_mode": "english",
+        "language_mode": "smart",
+        "hindi_output": "hinglish",
         "speed_mode": "balanced",
         "engine_mode": "auto",
         "safe_mode_implementation": "in_process_cpu",
@@ -305,6 +311,7 @@ class ConfigManager:
             self.custom_commands = self._load_json(self.custom_commands_path, DEFAULT_CUSTOM_COMMANDS)
         self._repair_hotkey_conflicts()
         self._release_always_open_mic()
+        self._adopt_smart_language()
         self._load_secrets()
         self.save_all()
 
@@ -336,6 +343,15 @@ class ConfigManager:
         if not audio.get("keep_ready_reset_v1"):
             audio["keep_ready"] = False
             audio["keep_ready_reset_v1"] = True
+
+    def _adopt_smart_language(self) -> None:
+        """One time: the old default 'English' only transcribed English. Smart keeps English as English and writes Hindi as Hinglish."""
+        t = self.settings.setdefault("transcription", {})
+        if not t.get("smart_language_v1"):
+            if t.get("language_mode", "english") == "english":
+                t["language_mode"] = "smart"
+            t.setdefault("hindi_output", "hinglish")
+            t["smart_language_v1"] = True
 
     def _repair_hotkey_conflicts(self) -> None:
         hotkeys = self.settings.setdefault("hotkeys", {})

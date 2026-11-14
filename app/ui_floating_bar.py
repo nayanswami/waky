@@ -40,9 +40,8 @@ class FloatingBar(QWidget):
         self.drag_offset: QPoint | None = None
         self.hovered = False
         self.controls_visible = False
-        self.animation_phase = 0.0
-        self._expand = 0.0   # 0 idle .. 1 active, driven by a spring so the pill pops open
-        self._vel = 0.0
+        self.engine = pill_styles.PillEngine()   # all motion: open spring, bar heights, result icons
+        self.level_source = None                 # callable returning the live microphone level (0..1)
         self.pill_style = pill_styles.get_style(None)
         self.accent = pill_styles.DEFAULT_ACCENT
         self.scale_factor = 1.0
@@ -59,6 +58,7 @@ class FloatingBar(QWidget):
         self._place_from_settings()
 
         self.animation = QTimer(self)
+        self.animation.setTimerType(Qt.PreciseTimer)
         self.animation.timeout.connect(self._tick)
         self.animation.start(16)
 
@@ -75,10 +75,11 @@ class FloatingBar(QWidget):
             self.scale_factor = max(0.5, min(2.5, float(fb.get("size", 100)) / 100.0))
         except (TypeError, ValueError):
             self.scale_factor = 1.0
+        self.engine.configure(fb.get("motion"), fb.get("smoothness", pill_styles.DEFAULT_SMOOTHNESS), bool(fb.get("react_to_voice", True)))
 
     def _apply_size(self) -> None:
-        w = int(self.pill_style.active_size[0] * self.scale_factor + 34)
-        h = int(self.pill_style.active_size[1] * self.scale_factor + self.BOTTOM_MARGIN * self.scale_factor + 14 + self.HEAD)
+        w = int(self.pill_style.active_size[0] * self.scale_factor + 50)
+        h = int(self.pill_style.active_size[1] * self.scale_factor + self.BOTTOM_MARGIN * self.scale_factor + 24 + self.HEAD)
         self.setFixedSize(max(w, 70), max(h, 34 + self.HEAD))
 
     def apply_look(self, key: str | None = None) -> None:
@@ -88,7 +89,7 @@ class FloatingBar(QWidget):
             self.pill_style = pill_styles.get_style(key)
         self._apply_size()
         self.ensure_on_screen(reset=False)
-        self._vel += 3.2
+        self.engine.kick(3.2)
         self.update()
 
     def apply_style(self, key: str | None = None) -> None:  # older call sites
@@ -176,14 +177,14 @@ class FloatingBar(QWidget):
     def set_status(self, status: str) -> None:
         if status != self.status_name:
             self.status_started_at = time.monotonic()
-            self.animation_phase = 0.0
         self.status_name = status
+        self.engine.set_status(status)
         if status != "Idle":
-            self._linger_until = time.monotonic() + 1.1
+            self._linger_until = time.monotonic() + (1.5 if status in ("Pasted", "Copied", "Error") else 1.1)
         self.update()
         self.keep_on_top()
         if status in ("Pasted", "Copied"):
-            QTimer.singleShot(450, lambda: self.set_status("Idle"))
+            QTimer.singleShot(950, lambda: self.set_status("Idle") if self.status_name in ("Pasted", "Copied") else None)
 
     def _target(self) -> float:
         return 0.0 if pill_styles.is_idle_state(pill_styles.state_for(self.status_name, 99.0)) else 1.0
@@ -191,13 +192,13 @@ class FloatingBar(QWidget):
     def _tick(self) -> None:
         dt = 0.016
         target = self._target()
-        accel = 720.0 * (target - self._expand) - 40.0 * self._vel   # quick, slightly under-damped spring
-        self._vel += accel * dt
-        self._expand += self._vel * dt
-        moving = abs(target - self._expand) > 0.002 or abs(self._vel) > 0.02
-        if not moving:
-            self._expand, self._vel = target, 0.0
-        self.animation_phase = (self.animation_phase + 0.016 * 1.1) % 1.0
+        level = 0.0
+        if self.level_source is not None and self.engine.state == "listening":
+            try:
+                level = float(self.level_source())
+            except Exception:
+                level = 0.0
+        moving = self.engine.step(level)
         goal = self._visibility_target()
         fading = abs(goal - self._alpha) > 0.001
         if fading:
@@ -210,7 +211,7 @@ class FloatingBar(QWidget):
             self.hide()
             return
         gear_moving = self._tick_gear(dt)
-        if fading or moving or gear_moving or target == 1.0 or self.status_name in ("Pasted", "Copied", "Error", "Cancelled"):
+        if fading or moving or gear_moving or target == 1.0 or self.status_name != "Idle":
             self.update()
 
     # ---------- hover Settings button ----------
@@ -288,10 +289,7 @@ class FloatingBar(QWidget):
         try:
             a = max(0.0, min(1.0, self._alpha))
             painter.setOpacity(a * a * (3 - 2 * a))
-            pill_styles.paint(
-                painter, QRectF(0, 0, self.width(), self.height()), self.pill_style, self.status_name, self.animation_phase,
-                time.monotonic() - self.status_started_at, self.BOTTOM_MARGIN, self.scale_factor, self.accent, self._expand,
-            )
+            self.engine.paint(painter, QRectF(0, 0, self.width(), self.height()), self.pill_style, self.accent, self.scale_factor, self.BOTTOM_MARGIN)
             painter.setOpacity(1.0)
             self._paint_gear(painter)
         finally:
@@ -327,6 +325,7 @@ class FloatingBar(QWidget):
 
 class TrayController:
     def __init__(self, app, icon, on_settings, on_pause, on_resume, on_restart, on_force_reset, on_reset_bar, on_set_visibility, get_visibility, on_quit) -> None:
+        self.toast_sink = None   # set by the app: shows Waky's own notification card instead of a Windows balloon
         self.tray = QSystemTrayIcon(icon, app)
         self.tray.setToolTip("Waky")
         self._get_visibility = get_visibility
@@ -376,7 +375,13 @@ class TrayController:
         self.menu.insertAction(self._extras_anchor, action)
         return action
 
-    def notify(self, title: str, message: str, on_click=None) -> None:
+    def notify(self, title: str, message: str, on_click=None, kind: str | None = None) -> None:
+        if self.toast_sink is not None:
+            try:
+                self.toast_sink(title, message, on_click, kind)
+                return
+            except Exception:
+                pass
         if on_click is not None:
             try:
                 self.tray.messageClicked.disconnect()

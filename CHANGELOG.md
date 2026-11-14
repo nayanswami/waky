@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.4.5
+
+- No more phantom "Thank you": Whisper's silence phrases ("Thank you.", "Thanks for watching") are dropped, even on a silent recording.
+- Waky now learns from your edits by itself. Fix a word in what Waky just pasted and it saves the fix and shows a notice. Turn it off in Settings > History. Ctrl+Alt+L still works.
+- Smart language: English stays English, Hindi is written as Hinglish. Choose Hinglish, English or Hindi script in Settings > Transcription.
+- Style learning: Waky notices whether you end messages with a full stop or start with a capital, and follows your habit.
+- Snappier: short phrases skip the AI cleanup and the connection to Groq is kept warm.
+- More precise punctuation: question marks, commas after openers and before "but", capital I, final full stop.
+- New pill animations that follow your voice. Results show on the pill's own dots (green wave for pasted, red for an error). Choose Fluid, Playful, Calm or Minimal and a Snappy to Buttery slider in Settings > Floating Bar.
+- New Waky-style notification cards (can be turned off in Settings > General).
+- Insights: real app names, busiest hours, typing time saved, weekly words, average dictation, longest dictation and a summary. The pixel banner is gone from that page.
+
 ## 1.4.4
 
 - Fixed the real cause of YouTube and music sounding different: when Windows' default microphone is a Bluetooth headset, dictating switched the earbuds to low-quality call sound. Automatic microphone now uses the built-in or wired microphone instead (pick a microphone in Settings > Audio to override).

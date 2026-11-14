@@ -15,7 +15,7 @@ from PySide6.QtGui import QColor, QFont, QGuiApplication, QImage, QPainter, QPai
 
 from .utils import DATA_DIR
 
-BLUE = "#2E62FF"  # Waky logo blue
+BLUE = "#2F6BFF"  # Waky logo blue
 
 
 @dataclass(frozen=True)
@@ -39,17 +39,20 @@ class Palette:
     success: str
     shadow: str
     is_dark: bool
+    side_sel: str = "#FFFFFF"  # selected sidebar row
 
 
-LIGHT = Palette(
-    "light", bg="#F3F3F6", surface="#FFFFFF", surface2="#F1F1F4", sidebar="#EBEBF0", field="#FFFFFF", text="#1D1D1F", text2="#68686F",
-    text3="#9A9AA1", sep="#E6E6EB", border="#D3D3D9", hover="rgba(0,0,0,0.055)", accent=BLUE, accent_fill="rgba(46,98,255,0.10)",
-    accent_fill_hover="rgba(46,98,255,0.18)", danger="#E5342B", success="#2FB457", shadow="rgba(0,0,0,0.08)", is_dark=False,
+LIGHT = Palette(  # "Glass": misty grey page, white cards, one blue
+    "light", bg="#E9EBF0", surface="#FFFFFF", surface2="#F1F3F8", sidebar="#F5F6FA", field="#FFFFFF", text="#14161C", text2="#6A7080",
+    text3="#A2A8B7", sep="#E6E8EE", border="#D6DAE3", hover="rgba(20,22,28,0.05)", accent=BLUE, accent_fill="rgba(47,107,255,0.10)",
+    accent_fill_hover="rgba(47,107,255,0.18)", danger="#E5484D", success="#22C38E", shadow="rgba(30,50,120,0.14)", is_dark=False,
+    side_sel="#FFFFFF",
 )
-DARK = Palette(
-    "dark", bg="#1E1E21", surface="#2A2A2E", surface2="#35353A", sidebar="#252528", field="#1F1F22", text="#F5F5F7", text2="#A8A8AF",
-    text3="#76767D", sep="#3A3A3F", border="#4A4A50", hover="rgba(255,255,255,0.07)", accent="#4A78FF", accent_fill="rgba(74,120,255,0.20)",
-    accent_fill_hover="rgba(74,120,255,0.32)", danger="#FF5A50", success="#32C75E", shadow="rgba(0,0,0,0.6)", is_dark=True,
+DARK = Palette(  # "Graphite": near-black panels, hairlines, blue active state
+    "dark", bg="#0E0F12", surface="#17181C", surface2="#1F2025", sidebar="#121316", field="#1F2025", text="#F2F3F5", text2="#8D909A",
+    text3="#5D606B", sep="#26272C", border="#34353C", hover="rgba(255,255,255,0.06)", accent="#4A78FF", accent_fill="rgba(74,120,255,0.20)",
+    accent_fill_hover="rgba(74,120,255,0.32)", danger="#FF5A5F", success="#46E08C", shadow="rgba(0,0,0,0.7)", is_dark=True,
+    side_sel="#23252B",
 )
 
 FONT_FAMILIES = ["Segoe UI Variable Text", "Segoe UI Variable", "Segoe UI", "Inter", "Arial"]
@@ -109,7 +112,7 @@ QSS = Template(r"""
 * { font-family: "Segoe UI Variable Text", "Segoe UI", sans-serif; font-size: 13px; outline: 0; }
 QDialog, QMessageBox, QInputDialog, QFileDialog { background: $bg; color: $text; }
 QLabel { color: $text; background: transparent; }
-QLabel#pageTitle { font-size: 22px; font-weight: 700; color: $text; }
+QLabel#pageTitle { font-size: 26px; font-weight: 700; color: $text; }
 QLabel#pageSubtitle, QLabel#sub, QLabel#settingsSubtitle { color: $text2; }
 QLabel#settingsTitle { font-size: 15px; font-weight: 700; }
 QLabel#title { font-size: 26px; font-weight: 700; color: $text; }
@@ -119,9 +122,9 @@ QLabel#ok { color: $success; font-weight: 600; }
 QLabel#bad { color: $danger; font-weight: 600; }
 QLabel#section { color: $text2; font-size: 12px; font-weight: 600; }
 
-QFrame#group { background: $surface; border: 1px solid $sep; border-radius: 10px; }
+QFrame#group { background: $surface; border: 1px solid $sep; border-radius: 16px; }
 QFrame#sideFrame { background: $sidebar; border: none; border-right: 1px solid $sep; }
-QFrame#styleCard { background: $surface; border: 1px solid $border; border-radius: 10px; }
+QFrame#styleCard { background: $surface; border: 1px solid $border; border-radius: 16px; }
 QFrame#styleCard[selected="true"] { border: 2px solid $accent; background: $surface; }
 QFrame#styleCard:hover { border-color: $text3; }
 QFrame#footer { background: $bg; border: none; border-top: 1px solid $sep; }
@@ -131,17 +134,17 @@ QPushButton#anchor:hover { background: $text3; }
 QPushButton#anchor:checked { background: $accent; }
 QPushButton#anchor:disabled { background: $sep; }
 QFrame#hairline { background: $sep; border: none; max-height: 1px; min-height: 1px; }
-QFrame#segment { background: $surface2; border: 1px solid $sep; border-radius: 8px; }
+QFrame#segment { background: $surface2; border: 1px solid $sep; border-radius: 12px; }
 
 QPushButton {
-  background: $surface; color: $text; border: 1px solid $border; border-radius: 6px;
-  padding: 3px 14px; font-weight: 500; min-height: 22px;
+  background: $surface; color: $text; border: 1px solid $border; border-radius: 16px;
+  padding: 4px 18px; font-weight: 600; min-height: 24px;
 }
 QPushButton:hover { background: $surface2; }
 QPushButton:pressed { background: $sep; }
 QPushButton:disabled { background: $surface2; color: $text3; border-color: $sep; }
-QPushButton#primary { background: $accent; color: #FFFFFF; border: 1px solid $accent_press; font-weight: 600; }
-QPushButton#primary:hover { background: $accent_hover; }
+QPushButton#primary { background: qlineargradient(x1:0,y1:0,x2:0,y2:1,stop:0 $accent_hover,stop:1 $accent); color: #FFFFFF; border: 1px solid $accent_press; font-weight: 700; }
+QPushButton#primary:hover { background: qlineargradient(x1:0,y1:0,x2:0,y2:1,stop:0 $accent_hover2,stop:1 $accent_hover); }
 QPushButton#primary:pressed { background: $accent_press; }
 QPushButton#primary:disabled { background: $surface2; color: $text3; border-color: $sep; }
 QPushButton#plain { background: transparent; color: $text2; border: 1px solid transparent; }
@@ -155,13 +158,13 @@ QPushButton#swatch:checked { border: 2px solid $text; }
 QPushButton#gear { background: rgba(20,20,24,0.92); color: #FFFFFF; border: 1px solid #3A3C45; border-radius: 9px; padding: 0; }
 
 QLineEdit, QPlainTextEdit, QTextEdit, QSpinBox, QDoubleSpinBox {
-  background: $field; color: $text; border: 1px solid $border; border-radius: 6px; padding: 3px 8px;
+  background: $field; color: $text; border: 1px solid $border; border-radius: 11px; padding: 4px 10px;
   selection-background-color: $accent; selection-color: #FFFFFF;
 }
 QLineEdit, QSpinBox, QDoubleSpinBox { min-height: 22px; }
 QLineEdit:focus, QPlainTextEdit:focus, QTextEdit:focus, QSpinBox:focus { border: 1px solid $accent; }
 QLineEdit:read-only { background: $field; }
-QLineEdit#hotkey { font-weight: 600; background: $surface2; border-radius: 6px; qproperty-alignment: AlignCenter; }
+QLineEdit#hotkey { font-weight: 700; background: $surface2; border-radius: 11px; qproperty-alignment: AlignCenter; }
 QLineEdit#hotkey:hover { border-color: $text3; }
 QLineEdit#hotkey:focus { border: 1px solid $accent; }
 QLineEdit#hotkeyBig { font-size: 20px; font-weight: 600; padding: 10px 14px; background: $surface; border-radius: 10px; qproperty-alignment: AlignCenter; }
@@ -169,7 +172,7 @@ QLineEdit#hotkeyBig:focus { border: 2px solid $accent; }
 QSpinBox::up-button, QSpinBox::down-button { width: 0; }
 
 QComboBox {
-  background: $surface; color: $text; border: 1px solid $border; border-radius: 6px; padding: 2px 8px; min-height: 22px;
+  background: $surface; color: $text; border: 1px solid $border; border-radius: 11px; padding: 3px 10px; min-height: 24px;
 }
 QComboBox:hover { background: $surface2; }
 QComboBox:focus, QComboBox:on { border: 1px solid $accent; }
@@ -181,12 +184,12 @@ QComboBox QAbstractItemView {
 }
 
 QListWidget { background: $surface; color: $text; border: 1px solid $sep; border-radius: 8px; padding: 4px; }
-QListWidget::item { padding: 5px 8px; border-radius: 5px; }
+QListWidget::item { padding: 6px 10px; border-radius: 9px; }
 QListWidget::item:selected { background: $accent; color: #FFFFFF; }
 QListWidget::item:hover:!selected { background: $hover; }
 QListWidget#sidebar { background: transparent; border: none; padding: 0; }
-QListWidget#sidebar::item { padding: 3px 6px; margin: 1px 0; border-radius: 6px; color: $text; }
-QListWidget#sidebar::item:selected { background: $accent; color: #FFFFFF; }
+QListWidget#sidebar::item { padding: 4px 6px; margin: 1px 0; border-radius: 12px; color: $text2; border: 1px solid transparent; }
+QListWidget#sidebar::item:selected { background: $side_sel; color: $text; border: 1px solid $sep; font-weight: 700; }
 QListWidget#sidebar::item:hover:!selected { background: $hover; }
 QListWidget#steps { background: transparent; border: none; padding: 0; }
 QListWidget#steps::item { padding: 4px 6px; margin: 1px 0; border-radius: 6px; color: $text2; }
@@ -212,8 +215,8 @@ QScrollBar::handle:horizontal { background: $border; border-radius: 4px; min-wid
 QScrollBar::add-line:horizontal, QScrollBar::sub-line:horizontal { width: 0; }
 
 QToolTip { background: $surface; color: $text; border: 1px solid $border; border-radius: 6px; padding: 4px 8px; }
-QMenu { background: $surface; color: $text; border: 1px solid $border; border-radius: 8px; padding: 5px; }
-QMenu::item { padding: 5px 22px 5px 12px; border-radius: 5px; }
+QMenu { background: $surface; color: $text; border: 1px solid $border; border-radius: 14px; padding: 6px; }
+QMenu::item { padding: 6px 22px 6px 12px; border-radius: 9px; }
 QMenu::item:selected { background: $accent; color: #FFFFFF; }
 QMenu::item:disabled { color: $text3; }
 QMenu::separator { height: 1px; background: $sep; margin: 4px 8px; }
@@ -228,7 +231,7 @@ def build_qss(p: Palette) -> str:
     return QSS.substitute(
         bg=p.bg, surface=p.surface, surface2=p.surface2, sidebar=p.sidebar, field=p.field, text=p.text, text2=p.text2, text3=p.text3,
         sep=p.sep, border=p.border, hover=p.hover, accent=p.accent, danger=p.danger, success=p.success,
-        accent_hover=accent.lighter(110).name(), accent_press=accent.darker(112).name(),
+        accent_hover=accent.lighter(110).name(), accent_hover2=accent.lighter(122).name(), side_sel=p.side_sel, accent_press=accent.darker(112).name(),
         chevron=assets["chevron"], radio_off=assets["radio_off"], radio_on=assets["radio_on"],
     )
 

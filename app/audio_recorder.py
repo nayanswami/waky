@@ -49,6 +49,7 @@ class AudioRecorder:
         # so the first word is never clipped and recording starts instantly. Nothing is stored or sent.
         self._preroll: deque = deque()
         self._preroll_samples = 0
+        self.level = 0.0   # live microphone level for the pill
         self._persistent = False
 
     PREROLL_SECONDS = 0.45
@@ -291,6 +292,10 @@ class AudioRecorder:
         block = indata.copy()
         if self.is_recording:
             self.frames.append(block)
+            try:
+                self.level = float(np.sqrt(np.mean(np.square(block.astype(np.float32)))))
+            except Exception:
+                pass
             return
         self._preroll.append(block)
         self._preroll_samples += len(block)

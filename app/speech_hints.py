@@ -100,4 +100,12 @@ def llm_block() -> str:
     pairs = corrections(30)
     if pairs:
         lines.append("Often misheard, fix them: " + "; ".join(f"'{w}' means '{r}'" for w, r in pairs))
+    try:
+        from . import style_profile
+
+        hint = style_profile.llm_hint()
+        if hint:
+            lines.append(hint)
+    except Exception:
+        pass
     return "\n".join(lines)

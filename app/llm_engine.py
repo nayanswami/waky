@@ -47,7 +47,8 @@ DICTATION_PROMPT = """You are the cleanup step inside Waky, a dictation app. The
 
 Do:
 - Keep the speaker's own words, order, meaning, tone and level of formality. If they speak casually, the text stays casual.
-- Fix punctuation, capitalisation and obvious recognition mistakes. Use context, the vocabulary and the corrections you are given to decide what a misheard word should be (names, brands, technical terms, homophones).
+- Punctuate precisely, the way a careful writer would: end every sentence with the right mark (a full stop, a question mark for real questions, an exclamation mark only for clear excitement), put commas at natural pauses, after openers like "However," or "Honestly,", before "but" joining two clauses, and around asides. Split run-on speech into separate sentences. Capitalise sentence starts, names, places and the word "I". Keep a casual short message light: no stiff extra commas.
+- Fix capitalisation and obvious recognition mistakes. Use context, the vocabulary and the corrections you are given to decide what a misheard word should be (names, brands, technical terms, homophones).
 - Remove fillers (um, uh, erm, "you know" when it carries no meaning) and false starts, stutters and accidental repeats.
 - If the speaker corrects themselves ("Monday, no wait, Friday"), keep only the final version.
 - Write numbers, dates, times, emails, URLs and code-like terms the way they are normally written.

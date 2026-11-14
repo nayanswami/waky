@@ -7,7 +7,7 @@ import re
 from dataclasses import dataclass, replace
 from typing import Any
 
-from . import llm_engine, speech_hints
+from . import llm_engine, punctuation, speech_hints
 from .local_memory import (
     add_correction,
     add_memory_note,
@@ -208,7 +208,11 @@ def _plain_dictation(text: str, style: str, settings, engine: str, memory_enable
     if not base:
         return ""
     result = base
-    if style == "clean" and _cloud_should_run(settings, engine, True) and llm_engine.get_api_key(settings):
+    # A few plain English words need no AI round trip: skipping it saves most of a second.
+    quick = len(base.split()) <= 4 and not _HINGLISH_MARKERS.search(base) and not re.search(r"[ऀ-ॿ]", base)
+    if quick:
+        LOGGER.info("[DICTATION] short phrase, skipping the AI cleanup")
+    if style == "clean" and not quick and _cloud_should_run(settings, engine, True) and llm_engine.get_api_key(settings):
         request = llm_engine.RewriteRequest(
             transcript=base,
             custom_instructions=str(options.get("custom_instructions", "")),
@@ -229,6 +233,8 @@ def _plain_dictation(text: str, style: str, settings, engine: str, memory_enable
             LOGGER.warning("[DICTATION] cleanup unavailable (%s); using the plain transcript", exc)
     elif style == "clean" and auto_translate:
         result = _translate_to_english(result)
+    if result == base and style != "exact":   # no AI pass happened: fix punctuation with rules
+        result = punctuation.polish(result)
     result = _apply_vocabulary(result, memory_enabled)
     result = _remove_forbidden_phrases(result, memory_enabled)
     result = _sanitize_output(result)

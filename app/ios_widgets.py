@@ -1,5 +1,8 @@
 """macOS-flavoured widgets: switch, grouped lists, segmented control, key caps, step rail, animated page stack."""
 from __future__ import annotations
+import math
+import time
+
 
 from PySide6.QtCore import (
     Property, QEasingCurve, QParallelAnimationGroup, QPoint, QPointF, QPropertyAnimation, QRect, QRectF, QSize, Qt, QTimer, Signal,
@@ -30,8 +33,10 @@ class IOSSwitch(QCheckBox):
         self._t = 1.0 if self.isChecked() else 0.0
         self._pressed = False
         self._anim = QPropertyAnimation(self, b"knob", self)
-        self._anim.setDuration(260)
-        self._anim.setEasingCurve(QEasingCurve.OutCubic)
+        self._anim.setDuration(340)
+        _spring = QEasingCurve(QEasingCurve.OutBack)
+        _spring.setOvershoot(1.5)
+        self._anim.setEasingCurve(_spring)
         self.toggled.connect(self._on_toggled)
         self.setCursor(Qt.PointingHandCursor)
         self.setMinimumHeight(34)
@@ -119,20 +124,27 @@ class IOSSwitch(QCheckBox):
 
 
 class PillPreview(QWidget):
-    """Animated sample of a pill style on a neutral backdrop."""
+    """Animated sample of a pill style on a neutral backdrop. With demo=True it plays through every state."""
 
-    def __init__(self, style_key: str, accent: str = pill_styles.DEFAULT_ACCENT, scale: float = 1.0, status: str = "Listening", parent=None) -> None:
+    DEMO = (("Listening", 2.6), ("Transcribing", 1.3), ("Pasted", 1.3), ("Idle", 0.9), ("Listening", 2.0), ("Transcribing", 1.1), ("Error", 1.5), ("Idle", 0.9))
+
+    def __init__(self, style_key: str, accent: str = pill_styles.DEFAULT_ACCENT, scale: float = 1.0, status: str = "Listening", parent=None, demo: bool = False) -> None:
         super().__init__(parent)
         self.style_def = pill_styles.get_style(style_key)
         self.accent = accent
         self.scale = scale
-        self.status = status
-        self.phase = 0.0
+        self.engine = pill_styles.PillEngine()
+        self.engine.set_status(status)
+        self.demo = demo
+        self._demo_i = 0
+        self._demo_until = time.monotonic() + self.DEMO[0][1]
+        if demo:
+            self.engine.set_status(self.DEMO[0][0])
         self.setMinimumSize(120, 58)
-        self.setSizePolicy(self.sizePolicy().horizontalPolicy(), self.sizePolicy().verticalPolicy())
         self.timer = QTimer(self)
+        self.timer.setTimerType(Qt.PreciseTimer)
         self.timer.timeout.connect(self._tick)
-        self.timer.start(33)
+        self.timer.start(16)
 
     def set_look(self, style_key: str | None = None, accent: str | None = None, scale: float | None = None) -> None:
         if style_key:
@@ -143,10 +155,24 @@ class PillPreview(QWidget):
             self.scale = scale
         self.update()
 
+    def set_motion(self, motion: str | None, smoothness: int | float | None, react: bool = True) -> None:
+        self.engine.configure(motion, smoothness, react)
+        self.engine.kick(2.5)
+
+    def _fake_voice(self) -> float:
+        t = time.monotonic()
+        return max(0.0, 0.02 * (0.5 + 0.5 * math.sin(t * 7.1)) * (0.4 + 0.6 * math.sin(t * 1.9) ** 2)) * 5.0
+
     def _tick(self) -> None:
-        if self.isVisible():
-            self.phase = (self.phase + 0.045) % 1.0
-            self.update()
+        if not self.isVisible():
+            return
+        if self.demo and time.monotonic() >= self._demo_until:
+            self._demo_i = (self._demo_i + 1) % len(self.DEMO)
+            status, seconds = self.DEMO[self._demo_i]
+            self.engine.set_status(status)
+            self._demo_until = time.monotonic() + seconds
+        self.engine.step(self._fake_voice() if self.engine.state == "listening" else 0.0)
+        self.update()
 
     def paintEvent(self, _e) -> None:
         p = QPainter(self)
@@ -156,9 +182,7 @@ class PillPreview(QWidget):
             path = QPainterPath()
             path.addRoundedRect(area, 9, 9)
             p.fillPath(path, QColor("#1B1C22"))
-            inner = QRectF(area.x(), area.y(), area.width(), area.height())
-            pill_styles.paint(p, inner, self.style_def, self.status, self.phase, 99.0,
-                              bottom_margin=(area.height() - 26 * self.scale) / 2 / max(self.scale, 0.1), scale=self.scale, accent=self.accent)
+            self.engine.paint(p, area, self.style_def, self.accent, self.scale, (area.height() - 26 * self.scale) / 2 / max(self.scale, 0.1))
         finally:
             if p.isActive():
                 p.end()
@@ -548,10 +572,12 @@ class Segmented(QWidget):
         self._index = 0
         self._pos = 0.0
         self._anim = QPropertyAnimation(self, b"thumb", self)
-        self._anim.setDuration(240)
-        self._anim.setEasingCurve(QEasingCurve.OutCubic)
+        self._anim.setDuration(360)
+        _spring = QEasingCurve(QEasingCurve.OutBack)
+        _spring.setOvershoot(1.1)
+        self._anim.setEasingCurve(_spring)
         self.setCursor(Qt.PointingHandCursor)
-        self.setFixedHeight(28)
+        self.setFixedHeight(30)
         fm = QFontMetrics(self.font())
         self._seg_w = max(fm.horizontalAdvance(label) for _k, label in options) + 28
         self.setMinimumWidth(self._seg_w * len(options) + 4)
@@ -798,3 +824,109 @@ class FlowLayout(QLayout):
             x += hint.width() + self._spacing
             row_h = max(row_h, hint.height())
         return y + row_h - rect.y() + m.bottom()
+
+
+# ---------- bitmap look: 1-bit ordered-dither art, same language as the website ----------
+_BAYER = None
+
+
+def _bayer() -> list[float]:
+    global _BAYER
+    if _BAYER is None:
+        m = [[0, 2], [3, 1]]
+        n = 2
+        while n < 8:
+            m = [[m[y % n][x % n] * 4 + [[0, 2], [3, 1]][y // n][x // n] for x in range(n * 2)] for y in range(n * 2)]
+            n *= 2
+        _BAYER = [(m[i >> 3][i & 7] + 0.5) / 64 for i in range(64)]
+    return _BAYER
+
+
+class DitherBanner(QWidget):
+    """A calm, slowly moving dithered voice ribbon. Paints only while visible."""
+
+    PX = 3
+
+    def __init__(self, height: int = 52, parent=None) -> None:
+        super().__init__(parent)
+        self.setFixedHeight(height)
+        self.setAttribute(Qt.WA_TransparentForMouseEvents, True)
+        self._t = 0.0
+        self._timer = QTimer(self)
+        self._timer.setInterval(70)
+        self._timer.timeout.connect(self._tick)
+
+    def showEvent(self, event) -> None:
+        self._timer.start()
+        super().showEvent(event)
+
+    def hideEvent(self, event) -> None:
+        self._timer.stop()
+        super().hideEvent(event)
+
+    def _tick(self) -> None:
+        self._t += 0.07
+        self.update()
+
+    def paintEvent(self, _event) -> None:
+        import math
+
+        from PySide6.QtGui import QImage
+
+        px = self.PX
+        w, h = max(8, self.width() // px), max(4, self.height() // px)
+        img = QImage(w, h, QImage.Format_ARGB32)
+        img.fill(0)
+        col = QColor(ios_theme.current().text).rgba()
+        bayer = _bayer()
+        t = self._t
+        for x in range(w):
+            u = x / w
+            env = math.sin(math.pi * u)
+            ys = [0.5 + 0.28 * math.sin(u * 6.283 * (1 + 0.35 * k) - t * (0.9 + 0.3 * k) + k * 2) * (0.35 + 0.65 * env) for k in range(3)]
+            for y in range(h):
+                v = y / h
+                val = 0.0
+                for k in range(3):
+                    d = (v - ys[k]) / (0.17 + 0.06 * k)
+                    if -1 < d < 1:
+                        val += (1 - d * d) ** 2 * (1 - 0.26 * k)
+                val *= 0.5 + 0.5 * env
+                if val > bayer[(y & 7) * 8 + (x & 7)]:
+                    img.setPixel(x, y, col)
+        p = QPainter(self)
+        p.setRenderHint(QPainter.SmoothPixmapTransform, False)
+        p.setOpacity(0.7)
+        p.drawImage(self.rect(), img)
+
+
+class DitherImage(QWidget):
+    """A pre-dithered picture (white on black) drawn crisp; inverted in the light theme."""
+
+    def __init__(self, path: str, height: int = 150, focus: float = 0.22, parent=None) -> None:
+        super().__init__(parent)
+        from PySide6.QtGui import QImage
+
+        self._src = QImage(path)
+        self._focus = focus
+        self.setFixedHeight(height)
+        self._cache = None
+        self._cache_key = None
+
+    def paintEvent(self, _event) -> None:
+        from PySide6.QtGui import QImage
+
+        if self._src.isNull():
+            return
+        dark = ios_theme.current().is_dark
+        key = (self.width(), self.height(), dark)
+        if key != self._cache_key:
+            scale = self.width() / self._src.width()
+            scaled = self._src.scaled(self.width(), int(self._src.height() * scale), Qt.IgnoreAspectRatio, Qt.FastTransformation)
+            top = int(max(0, scaled.height() - self.height()) * self._focus)
+            img = scaled.copy(0, top, self.width(), self.height()).convertToFormat(QImage.Format_ARGB32)
+            if not dark:
+                img.invertPixels()
+            self._cache, self._cache_key = img, key
+        p = QPainter(self)
+        p.drawImage(0, 0, self._cache)

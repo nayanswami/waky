@@ -20,16 +20,17 @@ os.environ.setdefault("QT_LOGGING_RULES", "qt.qpa.window.warning=false")
 
 from PySide6.QtCore import QObject, Qt, QThread, QTimer, Signal, Slot
 from PySide6.QtGui import QIcon, QPainter, QPixmap
-from PySide6.QtWidgets import QApplication
+from PySide6.QtWidgets import QApplication, QSystemTrayIcon
 
 from app.audio_recorder import AudioRecorder, AudioResult
 from app.clipboard_inserter import ClipboardInserter
 from app.command_processor import process_text as process_voice_commands
-from app import app_profiles, http_pool, ios_theme, llm_engine, sounds, updater as updater_mod
+from app import app_profiles, punctuation, style_profile, hallucinations, hindi, speech_hints, http_pool, ios_theme, llm_engine, sounds, updater as updater_mod
 from app.config_manager import ConfigManager
 from app.diagnostics import DiagnosticsService
 from app import local_memory
 import pyperclip
+from app.edit_watcher import EditWatcher
 from app.history import History, fix_pairs as history_fix_pairs, learn as history_learn
 from app.stats import Stats
 from app.whats_new import WhatsNewDialog
@@ -42,6 +43,7 @@ from app.text_processor import TextProcessor
 from app.transcriber import FasterWhisperTranscriber
 from app.updater import UpdateChecker
 from app.ui_floating_bar import FloatingBar, TrayController
+from app.ui_toast import ToastManager
 from app.ui_onboarding import OnboardingWizard
 from app.ui_settings import SettingsWindow
 from app.utils import FROZEN, LOG_DIR, PROJECT_ROOT, RUNTIME_DIR
@@ -121,11 +123,13 @@ class WakyApp(QObject):
         self.current_app_exe = ""
         self.history = History()
         self.stats = Stats()
+        self.edit_watcher = EditWatcher()
         self.cleaned_up = False
         self.state = AppState.IDLE
         self._state_lock = threading.RLock()
 
         self.bar = FloatingBar(self.config.settings)
+        self.bar.level_source = lambda: self.recorder.level
         self.bar.settings_requested.connect(self.open_settings)
         self.bar.mic_test_requested.connect(self.open_settings_audio)
         self.bar.pause_requested.connect(self.toggle_pause)
@@ -144,6 +148,8 @@ class WakyApp(QObject):
             self.bar.visibility_mode,
             self.quit,
         )
+        self.toasts = ToastManager()
+        self.tray.toast_sink = self._toast
         self.paste_last_action = self.tray.add_action("Paste Last Result", self.paste_last_result)
         self.tray.add_action("Review and teach Waky...", self.open_history)
         self.update_action = self.tray.add_action("Update available", self.open_updates, visible=False)
@@ -290,6 +296,24 @@ class WakyApp(QObject):
 
         self.executor.submit(work)
 
+    def _learn_from_edit(self, entry_id: int, written: str, edited: str) -> None:
+        """The user fixed the sentence Waky just pasted. Learn the changed words and say so."""
+        try:
+            style_profile.observe(edited)
+            entry = next((e for e in self.history.items if e.get("id") == entry_id), None)
+            heard = str(entry.get("heard", "")) if entry else ""
+            pairs = history_fix_pairs(heard, written, edited)
+            if not pairs or len(pairs) > 6:
+                return
+            saved = history_learn(pairs)
+            if entry:
+                self.history.update_written(entry_id, edited)
+            self.stats.add_taught(saved)
+            listing = ",  ".join(f"{a} → {b}" for a, b in pairs[:3])
+            self.signals.notify.emit("Waky learned your fix", f"{listing}. Your context is updated.")
+        except Exception:
+            self.logger.warning("[WATCH] learning failed", exc_info=True)
+
     @Slot()
     def paste_last_result(self) -> None:
         text = self.last_result
@@ -323,6 +347,7 @@ class WakyApp(QObject):
                 if key:
                     http_pool.warm(key)
                 self.transcriber.prewarm()
+                self.edit_watcher.warm()
             except Exception:
                 self.logger.warning("Warm-up failed", exc_info=True)
 
@@ -619,11 +644,19 @@ class WakyApp(QObject):
                 self._next_pipeline_id()
                 self.recorder.start()
                 self._transition(AppState.LISTENING)
+                self._keep_connections_warm()
                 return True
             except Exception as exc:
                 self.signals.error.emit(f"Microphone unavailable: {exc}")
                 self._finish_and_reset(AppState.ERROR, "recording start error", 700)
                 return False
+
+    def _keep_connections_warm(self) -> None:
+        """Idle HTTPS connections go stale: reopen them while the user is still talking so the upload starts at once."""
+        key = llm_engine.get_api_key(self.config.settings)
+        if key and time.monotonic() - getattr(self, "_last_warm", 0.0) > 45:
+            self._last_warm = time.monotonic()
+            threading.Thread(target=http_pool.warm, args=(key,), daemon=True, name="waky-conn-warm").start()
 
     def _stop_recording(self) -> None:
         """Keep listening briefly after release so the last word is never cut off."""
@@ -678,7 +711,10 @@ class WakyApp(QObject):
                 return {"pipeline_id": pipeline_id, "status": "cancelled"}
             job_id = f"dictation-{pipeline_id}"
             result = self.transcriber.transcribe(audio.samples, audio.sample_rate, job_id=job_id)
-            transcript = result.text.strip()
+            raw_transcript = result.text.strip()
+            transcript = hallucinations.clean(raw_transcript, audio.samples, audio.sample_rate, speech_hints.stt_prompt(self.config.settings))
+            if raw_transcript and transcript != raw_transcript:
+                self._log_info("[FILTER] dropped silence phrase (%s chars -> %s)", len(raw_transcript), len(transcript))
             self._log_info("transcript length=%s", len(transcript))
             if self.config.get("privacy.include_transcript_in_logs", False):
                 self.logger.debug("Transcript: %s", transcript)
@@ -687,6 +723,9 @@ class WakyApp(QObject):
 
             clean_started = time.perf_counter()
             run_settings = app_profiles.apply_profile(self.config.settings, self.current_profile)
+            run_settings = self._apply_language_choice(run_settings, transcript)
+            if hindi.has_devanagari(transcript) and self._hindi_output() != "native":
+                transcript = hindi.to_hinglish(transcript, run_settings) if self._hindi_output() == "hinglish" else transcript
             if self.current_input_mode == "smart_pending":
                 self._resolve_smart_input_mode()
             if self.current_input_mode == "selected_rewrite" and self.selected_text_context:
@@ -712,9 +751,13 @@ class WakyApp(QObject):
             self.logger.info("Cleanup finished seconds=%.3f final_chars=%s", time.perf_counter() - clean_started, len(final_text))
             if not final_text:
                 return {"pipeline_id": pipeline_id, "status": "empty_transcript"}
-            self.last_result = final_text
             if self.current_input_mode != "selected_rewrite":
-                self.history.add(transcript, final_text, self.current_app_exe, persist=bool(self.config.get("privacy.keep_history", True)))
+                final_text = punctuation.fix_random_caps(final_text, {t for t in speech_hints.vocabulary(200) if t.lower() not in punctuation.COMMON})
+                final_text = style_profile.apply(final_text)
+            self.last_result = final_text
+            entry_id = 0
+            if self.current_input_mode != "selected_rewrite":
+                entry_id = self.history.add(transcript, final_text, self.current_app_exe, persist=bool(self.config.get("privacy.keep_history", True)))
             if self.cancel_requested.is_set():
                 return {"pipeline_id": pipeline_id, "status": "cancelled"}
 
@@ -735,6 +778,8 @@ class WakyApp(QObject):
                 self.logger.warning("[TIMEOUT] paste exceeded 5 seconds")
                 return {"pipeline_id": pipeline_id, "status": "timeout", "stage": "paste"}
             self._log_info("paste success=%s", pasted)
+            if pasted and entry_id and self.config.get("general.auto_learn", True):
+                self.edit_watcher.watch(final_text, lambda written, edited, eid=entry_id: self._learn_from_edit(eid, written, edited))
             try:
                 self.stats.record(transcript, final_text, audio.duration, self.current_app_exe, track_phrases=bool(self.config.get("privacy.keep_history", True)))
             except Exception:
@@ -745,6 +790,19 @@ class WakyApp(QObject):
         except Exception as exc:
             self.logger.exception("Dictation pipeline failed")
             return {"pipeline_id": pipeline_id, "status": "error", "error": str(exc)}
+
+    def _hindi_output(self) -> str:
+        return str(self.config.get("transcription.hindi_output", "hinglish"))
+
+    def _apply_language_choice(self, settings: dict, transcript: str) -> dict:
+        """Smart language: English stays English, Hindi follows the Hindi output setting (Hinglish, English or Hindi script)."""
+        if str(self.config.get("transcription.language_mode", "english")) != "smart":
+            return settings
+        import copy
+
+        settings = copy.deepcopy(settings)
+        settings.setdefault("command_processing", {})["auto_translate_to_english"] = self._hindi_output() == "english"
+        return settings
 
     def _resolve_smart_input_mode(self) -> None:
         commands = self.config.settings.get("command_processing", {})
@@ -918,10 +976,18 @@ class WakyApp(QObject):
         self.signals.error.emit(message)
 
     @Slot(str)
+    def _toast(self, title: str, message: str, on_click=None, kind: str | None = None) -> None:
+        """Waky's own notification card. Falls back to the Windows balloon when switched off in Settings."""
+        if self.config.get("general.waky_notifications", True):
+            self.toasts.show(title, message, kind, on_click)
+        else:
+            self.tray.tray.showMessage(title, message, QSystemTrayIcon.Information, 8000)
+
     def _show_error(self, message: str) -> None:
         self.diagnostics.set_error(message)
         self.logger.warning(message)
         self.bar.set_status("Error")
+        self.tray.notify("Something went wrong", message[:140], kind="error")
         if self.settings_window:
             self.settings_window.append_diagnostics(f"Error: {message}")
 
