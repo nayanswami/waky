@@ -129,7 +129,7 @@ h1 em{font-family:var(--serif);font-style:italic;font-weight:400;font-size:1.08e
 .ss-card h4{font-size:19px;font-weight:500;letter-spacing:-.025em;margin-bottom:10px}.ss-card p,.ss-card li{color:#9a9a9a;font-size:15px;line-height:1.6}.ss-card ol{padding-left:20px;display:grid;gap:6px}.ss-card b{color:#e8e8e8;font-weight:500}.ss-card a{color:#fff;text-decoration:underline;text-underline-offset:3px}
 .ss-foot{max-width:1180px;margin:56px auto 0;padding-top:24px;border-top:1px solid var(--border-soft);color:#6a6a6a;font-size:13.5px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:12px}
 @media (max-width:900px){.ss-grid,.ss-why{grid-template-columns:1fr}}
-@media (prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important}.appear,.hero-photo,.hero h1 em,.badge-star{opacity:1;transform:none;clip-path:none;filter:none}}
+
 
 /* ---- v5 nav: one glass bar, checker-dither hover ---- */
 #site-nav{gap:2px;padding:4px;border:1px solid rgba(255,255,255,.14);border-radius:10px;background:rgba(0,0,0,.5);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px)}
@@ -450,3 +450,11 @@ h1 em,.lsec h2 em,.fl-left h2 em,.cta-band h2 em{color:#9a9a9a!important}
   .hero-actions{width:100%}
 }
 @media (min-width:560px) and (max-width:900px){.page>.stats{display:flex!important;flex-direction:row!important;gap:12px!important;padding:12px 20px 18px!important;font-size:12.5px}.page>.stats .stat{white-space:normal;font-size:12.5px}}
+
+/* how it works: self-running loop, no scroll pinning */
+.flowx{height:auto!important;padding:clamp(70px,9vw,120px) 0}
+.flowx-in{position:static!important;height:auto!important}
+.fl-rail{overflow:hidden}
+.fl-asc{margin:0;padding:6px 26px 0;font:500 13px/1 "JetBrains Mono",Consolas,monospace;color:#f2f2f2;letter-spacing:.08em;white-space:pre;overflow:hidden;height:20px}
+/* ASCII cheetah placement */
+@media (min-width:901px){.leo-c{width:66%!important;right:-1%!important;bottom:11%!important;opacity:.9!important;-webkit-mask-image:linear-gradient(90deg,transparent 0,#000 24%);mask-image:linear-gradient(90deg,transparent 0,#000 24%)}}

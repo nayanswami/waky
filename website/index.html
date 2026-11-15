@@ -12,13 +12,11 @@
 <link rel="icon" href="assets/waky-icon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900&family=Instrument+Serif:ital@1&family=Pixelify+Sans:wght@400;500;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="base.css">
+<link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900&family=Instrument+Serif:ital@1&family=Pixelify+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="base.css"><link rel="stylesheet" href="v7.css?v=7">
 </head>
 <body style="background:#000;color:#fff"><div id="sprog"></div>
 <div class="grain"></div>
-<div class="hero-photo" id="hp"><canvas id="leo" class="leo-c" aria-hidden="true"></canvas></div>
-<div class="page">
   <div class="menu-backdrop"></div>
   <header class="header">
     <a class="logo appear appear--scale" href="#top" aria-label="Waky" style="--d:.08s"><img src="assets/waky-icon.png" alt="" width="22" height="22"><span>Waky</span></a>
@@ -32,6 +30,8 @@
     <a class="btn btn-solid header-cta appear appear--scale js-download" href="#download" style="--d:.34s">Download free</a>
     <button class="burger appear appear--scale" type="button" aria-controls="site-nav" aria-expanded="false" aria-label="Open menu" style="--d:.34s"><span></span><span></span><span></span></button>
   </header>
+<div class="hero-photo" id="hp"><canvas id="leo" class="leo-c" aria-hidden="true"></canvas></div>
+<div class="page">
 
   <main class="hero" id="top">
     <div class="hero-copy">
@@ -54,44 +54,60 @@
       <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="2.4" y="2.4" width="19.2" height="19.2" rx="6.2" fill="#fff"/><path d="M12 7.1v7.4M8.15 12.35L12 16.2l3.85-3.85" fill="none" stroke="#111" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round"/></svg>
       <span>No audio recordings saved</span>
     </div>
-    <div class="stat appear appear--stat" style="--d:1.44s">
-      <svg class="stat-icon-wide" viewBox="0 0 40 22" aria-hidden="true"><circle cx="10.2" cy="11" r="9.2" fill="#2b2b2b"/><ellipse cx="10.2" cy="12.1" rx="4.15" ry="3.7" fill="#f4f4f4"/><circle cx="8.6" cy="11.6" r=".7" fill="#1a1a1a"/><circle cx="11.8" cy="11.6" r=".7" fill="#1a1a1a"/><circle cx="20.2" cy="11" r="9.2" fill="#fff"/><circle cx="17.6" cy="9.6" r="1.7" fill="#111"/><circle cx="22.8" cy="9.6" r="1.7" fill="#111"/><path d="M16.9 13.6q3.3 3 6.6 0" fill="none" stroke="#111" stroke-width="1.2" stroke-linecap="round"/><circle cx="30.2" cy="11" r="9.2" fill="#2e62ff"/><path d="M25.6 8.6l1.6 6 2.1-4.2 1.9 4.2 1.7-6" fill="none" stroke="#fff" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" transform="translate(1 .6) scale(.92)"/></svg>
-      <span>Works in any text field</span>
-    </div>
+    <div class="stat stat-apps appear appear--stat" style="--d:1.44s"><span>Works in any text field</span><div class="apps" aria-label="Claude, Gmail, WhatsApp and more"><i class="ap ap-claude" title="Claude"></i><i class="ap ap-gmail" title="Gmail"></i><i class="ap ap-wa" title="WhatsApp"></i><i class="ap ap-plus" title="and every other app">+</i></div></div>
   </footer>
 </div>
 
 
-<div class="mq2" aria-hidden="true"><div><span>THINK IT</span><i></i><span>SAY IT</span><i></i><span>WAKY WRITES IT</span><i></i><span>HOLD CTRL + WIN</span><i></i><span>NO SUBSCRIPTION</span><i></i><span>NO AUDIO SAVED</span><i></i><span>ANY TEXT FIELD</span><i></i><span>FREE FOR WINDOWS</span><i></i><span>THINK IT</span><i></i><span>SAY IT</span><i></i><span>WAKY WRITES IT</span><i></i><span>HOLD CTRL + WIN</span><i></i><span>NO SUBSCRIPTION</span><i></i><span>NO AUDIO SAVED</span><i></i><span>ANY TEXT FIELD</span><i></i><span>FREE FOR WINDOWS</span><i></i></div></div>
 <div class="long">
-<section class="lsec" id="try"><span class="eyebrow sc-in pxr">Try it</span><h2 class="pxr">Hold the keys.<br><em>Say anything.</em></h2><p class="sub2 pxr">This is the real flow, simulated. Press and hold the two keys below, or hold your spacebar.</p>
-<div class="demo pxr" id="demo" data-s="idle"><div class="demo-top"><div class="dtabs" id="dTabs"><button class="on" data-k="email">Email</button><button data-k="notes">Notes</button><button data-k="hinglish">Hinglish</button></div><span class="dstate" id="dState">Ready</span></div>
-<div class="dflow">
-<div class="dcol dc-keys"><small>01 &middot; Hold</small><div class="dkeys"><button class="dkey" id="dK1" type="button">Ctrl</button><span>+</span><button class="dkey" id="dK2" type="button">Win</button></div><p class="dhint">Press and hold both keys.<span>Or hold your spacebar.</span></p><div class="dpill" id="dPill" data-s="idle"><span class="pd"></span><span class="pb"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span><b id="dPL">Hold to talk</b></div></div>
-<div class="dlink"></div>
-<div class="dcol dc-raw"><small>02 &middot; You say</small><div class="tape"><p class="said" id="dSaid"></p></div></div>
-<div class="dlink"></div>
-<div class="dcol dc-doc"><small>03 &middot; Waky writes &middot; <span id="dApp">Email</span></small><div class="paper"><div class="dout" id="dOut"></div></div></div>
-</div></div></section>
-
-<section class="flowx" id="how"><div class="flowx-in">
-<div class="fl-left"><span class="eyebrow sc-in pxr">How Waky works</span><span class="fl-tag" id="flTag">01 &middot; LISTEN</span><h2 id="flT">Hold the key</h2><p id="flD"></p><ol class="fl-dots" id="flDots"><li>Hold</li><li>Speak</li><li>Clean</li><li>Paste</li></ol></div>
-<div class="fl-right"><span class="fl-rail"><i id="flFill"></i></span><div class="fl-win" id="flWin" data-st="0"><div class="fl-bar"><i></i><i></i><i></i><span>Mail &middot; New message</span><em class="fl-chip" id="flChip">mode: email</em></div><div class="fl-meta"><span>To</span>Maya</div><div class="fl-body" id="flBody"></div><div class="fl-wave"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="fl-pill dpill" id="flPill" data-s="listen"><span class="pd"></span><span class="pb"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span><b id="flPL">Listening</b></div></div></div>
+<section class="lsec" id="try"><span class="eyebrow sc-in pxr">Try it</span><h2 class="pxr">Hold the keys.<br><em>Say anything.</em></h2><p class="sub2 pxr">This is the real flow, simulated. It plays by itself, or hold both keys (or your spacebar) to run it yourself.</p>
+<div class="dm pxr" id="demo" data-s="idle">
+<div class="dm-win">
+<div class="dm-title"><span class="dm-dots"><i></i><i></i><i></i></span><b id="dApp">Email</b><span class="dstate" id="dState">Ready</span></div>
+<div class="dm-apps" id="dTabs"><button class="on" data-k="email">Email</button><button data-k="notes">Notes</button><button data-k="hinglish">Chat</button></div>
+<div class="dm-head"><span>To</span>Maya</div>
+<div class="dm-body"><div class="dout" id="dOut"></div></div>
+</div>
+<div class="dm-hud">
+<small>01 &middot; Hold</small>
+<div class="dm-keys"><button class="kc" id="dK1" type="button">Ctrl</button><i>+</i><button class="kc" id="dK2" type="button">Win</button></div>
+<small>02 &middot; You say</small>
+<div class="dm-say"><p class="said" id="dSaid"></p></div>
+<div class="hp" id="dPill" data-s="idle"><span class="pd"></span><span class="pb"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span><b id="dPL">Hold to talk</b></div>
+</div>
 </div></section>
 
-<section class="lsec" id="features"><span class="eyebrow sc-in pxr">Key features</span><h2 class="pxr">Everything it does,<br><em>running live.</em></h2><p class="sub2 pxr">Each tile is a working miniature. Touch them.</p>
-<div class="bento">
-<article class="tile t-clean r2 s2 pxr"><span class="tl">Clean text</span><h3>Not a transcript.<br>Your words, tidied.</h3><p>Fillers, false starts and wrong words are removed. What is left sounds like you.</p><div class="tc"><div class="tc-raw" id="tClean" data-p="0"></div><div class="tc-out" id="tCleanOut">Tell Maya I&rsquo;ll send the deck tomorrow.</div></div></article>
-<article class="tile s2 pxr"><span class="tl">Spoken modes</span><div class="chips" id="tChips"><span>write email</span><span>bullet points</span><span>prompt mode</span><span>make it shorter</span></div><div class="t-mo" id="tMout"></div></article>
-<article class="tile pxr"><span class="tl">Hinglish to English</span><div class="pair"><div class="a" id="tHiF"></div><div class="b" id="tHiT"></div></div></article>
-<article class="tile pxr"><span class="tl">Snippets</span><div class="pair"><div class="a" id="tSnIn"></div><div class="b" id="tSnOut"></div></div></article>
-<article class="tile s2 pxr"><span class="tl">Per-app profiles</span><div class="seg3" id="tProf"><button class="on">Chat</button><button>Email</button><button>Code</button></div><div class="t-mo" id="tProfOut"></div></article>
-<article class="tile pxr"><span class="tl">Insights</span><div class="big-n">158<small>wpm</small></div><div class="heat" id="tHeat"></div></article>
-<article class="tile pxr"><span class="tl">Hands-free</span><div class="f9row"><button class="f9" id="tF9" type="button">F9</button><div class="hbars" id="tBars"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div><p id="tF9T">Tap to start, tap to stop</p></article>
-<article class="tile s2 pxr"><span class="tl">Rewrite a selection</span><div class="t-rw" id="tRw"></div><p>Select text, hold the key, say make it shorter. It is replaced in place.</p></article>
-<article class="tile tile-priv s2 pxr"><span class="tl">Local or cloud</span><div class="seg3" id="tRoute"><button class="on">Cloud</button><button>Local</button></div><div class="route"><span>Your voice</span><i></i><span>Groq or Whisper</span><i></i><span>Your app</span></div><p id="tRouteT">Groq with your own key. Nothing is stored. No audio is ever saved.</p></article>
-</div></section>
+<section class="hw" id="how" data-st="0"><div class="hw-in">
+<span class="eyebrow sc-in pxr">How Waky works</span>
+<h2 class="pxr">Four steps.<br><em>About two seconds.</em></h2>
+<div class="hw-track" id="hwTrack"><i></i><b></b></div>
+<ol class="hw-steps">
+<li class="hw-s" data-i="0"><span class="hw-n">01 / HOLD</span><h3>Hold the key</h3><p>Click into any text field and hold Ctrl + Win. A small black pill shows Waky is listening. No window opens.</p>
+<div class="hw-v"><div class="hw-keys"><kbd>Ctrl</kbd><kbd>Win</kbd></div><div class="hw-pill"><span></span><em id="hwPL">Listening</em></div></div></li>
+<li class="hw-s" data-i="1"><span class="hw-n">02 / SPEAK</span><h3>Say it your way</h3><p>Ramble, pause, say um. Switch between Hindi and English mid-sentence. Speech becomes text with Groq or Whisper.</p>
+<div class="hw-v"><pre class="hw-wave" id="hwWave"></pre><div class="hw-raw" id="hwRaw"></div></div></li>
+<li class="hw-s" data-i="2"><span class="hw-n">03 / CLEAN</span><h3>Clean it. Shape it.</h3><p>Fillers go, punctuation is fixed, your vocabulary repairs misheard words. Say a mode and the sentence becomes a draft.</p>
+<div class="hw-v"><div class="hw-mid" id="hwMid"></div><span class="hw-chip" id="hwChip">mode: email</span></div></li>
+<li class="hw-s" data-i="3"><span class="hw-n">04 / PASTE</span><h3>Let go. It is written.</h3><p>The text lands where your cursor is. Waky never presses Enter, so you read it before you send it.</p>
+<div class="hw-v hw-paper"><div class="hw-pbar"><i></i><i></i><i></i><em>Mail</em></div><div class="hw-out" id="hwOut"></div></div></li>
+</ol></div></section>
 
+<section class="lsec sp" id="speed"><span class="eyebrow sc-in pxr">Speed</span><h2 class="pxr">Speak 3 to 4 times<br><em>faster than you type.</em></h2>
+<div class="sp-grid pxr"><div class="sp-row"><div class="sp-h"><b>Keyboard</b><span id="spKw">0 wpm</span></div><div class="sp-bar"><i id="spKb"></i></div><p class="sp-t" id="spK"></p></div>
+<div class="sp-row w"><div class="sp-h"><b>Waky</b><span id="spWw">0 wpm</span></div><div class="sp-bar"><i id="spWb"></i></div><p class="sp-t" id="spW"></p></div></div>
+<p class="sp-note pxr">Average typing is about 45 words a minute. Natural speech is about 150 or more. Same sentence, same start line.</p></section>
+<section class="lsec ft" id="features"><span class="eyebrow sc-in pxr">Key features</span><h2 class="pxr">Everything it does,<br><em>running live.</em></h2><p class="sub2 pxr">Pick one, or just watch. It cycles on its own.</p>
+<div class="ft-grid pxr"><ul class="ft-list" id="ftList"></ul>
+<div class="ft-stage" id="ftStage"><div class="ft-top"><span id="ftCtx">clean-up on</span><span id="ftIdx">01 / 07</span></div>
+<div class="ft-pane"><small>You say</small><p id="ftIn"></p></div><div class="ft-arrow" aria-hidden="true"></div>
+<div class="ft-pane out"><small>Waky writes</small><p id="ftOut"></p></div></div></div></section>
+
+<section class="lsec" id="tone"><span class="eyebrow sc-in pxr">Make it yours</span><h2 class="pxr">Your tone.<br><em>Your words.</em></h2>
+<div class="tv pxr"><div class="tv-card"><div class="tv-h"><small>Tone, per app</small><div class="tv-tabs" id="tvTabs"><button class="on">Formal</button><button>Casual</button><button>Very casual</button></div></div><p class="tv-say"><span class="d">You say</span> tell Maya I’ll send the deck tomorrow</p><p class="tv-out" id="tvOut"></p></div>
+<div class="tv-card" id="vocab"><div class="tv-h"><small>Vocabulary</small><span class="tv-tag" id="vcTag">Learning…</span></div><p class="tv-say"><span class="d">Heard</span> <span id="vcHeard">ask Aditee about the report</span></p>
+<div class="vc-dlg"><span class="d">Add to vocabulary</span><div class="vc-f"><b>Aditee</b><i>→</i><b id="vcTo">Aditya</b></div><button type="button" id="vcBtn" tabindex="-1">Add</button></div><p class="tv-out" id="vcOut"></p></div></div></section>
+<section class="lsec" id="privacy"><span class="eyebrow sc-in pxr">Privacy</span><h2 class="pxr">Your voice<br><em>stays yours.</em></h2>
+<div class="pv pxr"><div><b>0</b><span>audio recordings saved. Ever.</span></div><div><b>Local</b><span>Whisper runs on your PC and never sends speech anywhere.</span></div><div><b>Your key</b><span>Cloud mode uses your own free Groq key, kept in Windows Credential Manager.</span></div><div><b>No account</b><span>No sign-up, no tracking profile, no subscription.</span></div></div></section>
 <section class="lsec" id="free"><span class="eyebrow sc-in pxr">Free</span><div class="lfree"><div class="ledc pxr"><canvas id="led" aria-label="$0"></canvas></div><div class="pxr"><h2>Actually free.</h2><p class="sub2">No subscription, no trial timer and no account to make. Move your cursor through the $0.</p><ul><li><div><b>Waky app</b><span>The whole thing, not a demo</span></div><em>$0</em></li><li><div><b>Local Whisper</b><span>Speech recognition on your own PC</span></div><em>$0</em></li><li><div><b>Cloud speech</b><span>Bring your own free Groq key</span></div><em>Your key</em></li></ul></div></div></section>
 <section class="ss" id="install-help">
   <div class="ss-in">
@@ -115,12 +131,21 @@
   </div>
   <div class="ss-foot"><span>Waky · Windows 10 + 11</span><span>Think it. Say it. Waky writes it.</span></div>
 </section>
-<section class="cta-band"><div><h2 class="pxr">Keep the thought.<br><em>Skip the typing.</em></h2><a class="btn btn-solid js-download" href="#download">Download free for Windows</a><p style="margin-top:16px;font-size:13.5px"><span class="js-size">about 113 MB</span> &middot; Windows 10 + 11 &middot; No account</p></div><div class="cta-art"><canvas id="band2" aria-hidden="true"></canvas><span>THINK IT. SAY IT.</span></div></section>
+<section class="lsec" id="faq"><span class="eyebrow sc-in pxr">FAQ</span><h2 class="pxr">Good<br><em>questions.</em></h2>
+<div class="fq pxr"><details open><summary>Is it really free?</summary><p>Yes. The app is free, with no trial timer and no account. Local Whisper costs nothing, and cloud speech uses your own free Groq key.</p></details>
+<details><summary>Windows says it protected my PC. Is Waky safe?</summary><p>SmartScreen warns about every new app that is not code-signed yet. Click More info, then Run anyway. You can also verify the SHA-256 of the installer. The steps are in the Install help below.</p></details>
+<details><summary>Does it work offline?</summary><p>Yes. Switch to local Whisper in Settings and speech is transcribed on your PC. Clean-up falls back to simple rules without internet.</p></details>
+<details><summary>Where does my audio go?</summary><p>Nowhere is it stored. In cloud mode it goes to Groq with your key for transcription. In local mode it never leaves your PC.</p></details>
+<details><summary>Which languages work?</summary><p>English and Hindi, including Hinglish mixed in one sentence, plus the many languages Whisper supports.</p></details>
+<details><summary>Mac or Android?</summary><p>Not yet. Waky is built for Windows 10 and 11.</p></details></div></section>
+<section class="cta-band"><div><h2 class="pxr">Keep the thought.<br><em>Skip the typing.</em></h2><a class="btn btn-solid js-download" href="#download">Download free for Windows</a><p style="margin-top:16px;font-size:13.5px"><span class="js-size">about 113 MB</span> &middot; Windows 10 + 11 &middot; No account</p></div><div class="cta-term" id="term" aria-hidden="true"><div class="ct-bar"><i></i><i></i><i></i><span>waky</span></div><pre id="ctOut"></pre></div></section>
 <div class="lfoot"><a class="logo" href="#top"><img src="assets/waky-icon.png" alt="" width="20" height="20" style="border-radius:5px"><span>Waky</span></a><p>For people who think faster than they type.</p><nav><a href="how-it-works.html">How it works</a><a href="modes.html">Modes</a><a href="free.html">Free</a><a href="guide.html">Guide</a><a href="#" class="js-repo">GitHub</a></nav></div>
 </div>
-<script src="site-config.js"></script>
+<script src="site-config.js"></script><script src="nav.js" defer></script>
 <script src="bitmap.js"></script>
+<script src="assets/cheetah-frames.js"></script>
 <script src="fx8.js"></script>
+<script src="fx9.js"></script>
 
 <script>
 (function () {

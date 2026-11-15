@@ -1,7 +1,7 @@
 /* Waky bitmap: light 1-bit ordered-dither renderer (Bayer 8x8). White dots on transparent. Used for page bands and the $0. */
 (function () {
   "use strict";
-  var reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var reduce = false;
   var BAYER = (function () {
     var m = [[0, 2], [3, 1]], n = 2;
     while (n < 8) { var o = []; for (var y = 0; y < n * 2; y++) { o.push([]); for (var x = 0; x < n * 2; x++) o[y].push(m[y % n][x % n] * 4 + [[0, 2], [3, 1]][Math.floor(y / n)][Math.floor(x / n)]); } m = o; n *= 2; }

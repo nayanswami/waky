@@ -3,7 +3,7 @@
   "use strict";
   var $ = function (s, r) { return (r || document).querySelector(s); };
   var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
-  var reduce = matchMedia("(prefers-reduced-motion: reduce)").matches || /[?&]still/.test(location.search), fine = matchMedia("(pointer: fine)").matches;
+  var reduce = /[?&]still/.test(location.search), fine = matchMedia("(pointer: fine)").matches;
   var cfg = window.WAKY || {};
   var clamp = function (v, a, b) { return v < a ? a : v > b ? b : v; };
   var hash = function (a, b) { var s = Math.sin(a * 127.1 + b * 311.7) * 43758.5453; return s - Math.floor(s); };
@@ -84,22 +84,26 @@
      ===================================================================== */
   (function leopard() {
     var cv = $("#leo"); if (!cv) return;
-    var FR = 23, FW = 260, FH = 103, COLS = 6, S = 5, c = cv.getContext("2d"), frames = [], vis = true, last = 0, t0 = performance.now(), cur = -1;
-    cv.width = FW * S; cv.height = FH * S;
-    var img = new Image();
-    img.onload = function () {
-      var oc = document.createElement("canvas"); oc.width = img.naturalWidth; oc.height = img.naturalHeight; var g = oc.getContext("2d", { willReadFrequently: true }); g.drawImage(img, 0, 0);
-      for (var k = 0; k < FR; k++) { var d = g.getImageData((k % COLS) * FW, ((k / COLS) | 0) * FH, FW, FH).data, a = new Float32Array(FW * FH); for (var p = 0; p < a.length; p++) a[p] = d[p * 4] / 255; frames.push(a); }
-      if (reduce) draw(0); else requestAnimationFrame(frame);
-    };
-    img.src = "assets/leo-sheet.png";
-    function draw(k) {
-      if (k === cur) return; cur = k; var a = frames[k]; c.clearRect(0, 0, cv.width, cv.height); c.fillStyle = "#f2f2f2"; c.beginPath();
-      for (var y = 0; y < FH; y++) for (var x = 0; x < FW; x++) { var v = a[y * FW + x]; if (v < .08) continue; var r = S * .5 * Math.sqrt(Math.min(1, v * 2.2)); c.moveTo(x * S + S / 2 + r, y * S + S / 2); c.arc(x * S + S / 2, y * S + S / 2, r, 0, 6.2832); }
-      c.fill();
+    var c = cv.getContext("2d"), mqm = matchMedia("(max-width:900px)"), D = (mqm.matches && window.CHEETAH_M) || window.CHEETAH, vis = true, t0 = performance.now(), cur = -1, FS = 10, LH = 1;
+    function size() {
+      var w = cv.parentNode.clientWidth || 800; var dpr = Math.min(2, devicePixelRatio || 1);
+      FS = Math.max(4, w * (cv.offsetWidth / w || 1) / (D.cols * .6)); 
+      cv.width = Math.round(cv.offsetWidth * dpr); cv.height = Math.round(cv.offsetHeight * dpr); cv.__dpr = dpr; cur = -1; if (reduce && D) draw(0);
     }
-    function frame(now) { if (frames.length) draw(Math.floor((now - t0) / 40) % FR); if (vis && !reduce) requestAnimationFrame(frame); }
-    if ("IntersectionObserver" in window) new IntersectionObserver(function (es) { var v = es[0].isIntersecting; if (v && !vis) { vis = true; if (!reduce) requestAnimationFrame(frame); } else if (!v) vis = false; }).observe(cv);
+    function draw(k) {
+      if (k === cur) return; cur = k; var dpr = cv.__dpr || 1, cw = cv.width, ch = cv.height;
+      c.setTransform(1, 0, 0, 1, 0, 0); c.clearRect(0, 0, cw, ch);
+      var fs = cw / (D.cols * .6); var lh = ch / D.rows; fs = Math.min(fs, lh / 1.0);
+      c.font = "600 " + fs + "px 'JetBrains Mono','Cascadia Mono',Consolas,'Courier New',monospace"; c.textBaseline = "top";
+      c.fillStyle = "#f2f2f2"; var ls = D.frames[k].split("\n");
+      for (var i = 0; i < ls.length; i++) if (ls[i]) c.fillText(ls[i], 0, i * lh);
+    }
+    function frame(now) { if (vis) draw(Math.floor((now - t0) / 70) % D.frames.length); if (!reduce) requestAnimationFrame(frame); }
+    function pick() { D = (mqm.matches && window.CHEETAH_M) || window.CHEETAH; cv.style.setProperty("aspect-ratio", (D.cols * .6) + "/" + D.rows, "important"); size(); }
+    if (!D) return; pick(); addEventListener("resize", size); (mqm.addEventListener ? mqm.addEventListener("change", pick) : mqm.addListener(pick));
+    if (document.fonts && document.fonts.load) document.fonts.load("600 12px 'JetBrains Mono'").then(function () { cur = -1; if (reduce) draw(0); });
+    if (reduce) draw(0); else requestAnimationFrame(frame);
+    if ("IntersectionObserver" in window) new IntersectionObserver(function (es) { vis = es[0].isIntersecting; }).observe(cv);
   })();
 
   /* =====================================================================
@@ -112,7 +116,7 @@
       notes: { raw: "{okay so} bullet points update the page {uh} ask Maya for copy share the preview", out: "• Update the page\n• Ask Maya for the final copy\n• Share the preview", app: "Notes" },
       hinglish: { raw: "kal tak bhej dunga {um} bas final feedback chahiye", out: "I’ll send it by tomorrow. I just need the final feedback.", app: "Chat" }
     };
-    var key = "email", run = 0, state = "idle", words = [], timers = [], interacted = false, vis = false;
+    var key = "email", run = 0, state = "idle", words = [], timers = [], lastUser = 0, vis = false;
     var said = $("#dSaid"), out = $("#dOut"), st = $("#dState"), app = $("#dApp"), k1 = $("#dK1"), k2 = $("#dK2"), pill = $("#dPill"), pl = $("#dPL");
     function later(f, ms) { timers.push(setTimeout(f, ms)); } function clr() { timers.forEach(clearTimeout); timers = []; run++; }
     function setState(s) { state = s; root.setAttribute("data-s", s); pill.setAttribute("data-s", s); st.textContent = { idle: "Ready", listen: "Listening", clean: "Cleaning up", write: "Writing", done: "Pasted" }[s]; pl.textContent = { idle: "Hold to talk", listen: "Listening", clean: "Cleaning up", write: "Writing…", done: "Pasted" }[s]; }
@@ -122,44 +126,28 @@
       sc.raw.split(/(\{[^}]+\})/).filter(Boolean).forEach(function (p) { var mm = p.match(/^\{(.+)\}$/); (mm ? mm[1] : p).split(/\s+/).filter(Boolean).forEach(function (w) { var sp = document.createElement("span"); sp.className = "w" + (mm ? " f" : ""); sp.textContent = w; said.appendChild(sp); said.appendChild(document.createTextNode(" ")); words.push(sp); }); });
       setState("idle");
     }
-    function start() { if (state !== "idle" && state !== "done") return; interacted = true; load(key); setState("listen"); keys(true); var my = run, i = 0; (function tick() { if (my !== run || state !== "listen") return; if (i < words.length) { words[i++].classList.add("on"); later(tick, 170 + Math.random() * 80); } else later(tick, 120); })(); }
+    function start() { if (state !== "idle" && state !== "done") return; load(key); setState("listen"); keys(true); var my = run, i = 0; (function tick() { if (my !== run || state !== "listen") return; if (i < words.length) { words[i++].classList.add("on"); later(tick, 170 + Math.random() * 80); } else later(tick, 120); })(); }
     function end() {
       if (state !== "listen") return; keys(false); var my = run, rest = words.filter(function (w) { return !w.classList.contains("on"); });
       rest.forEach(function (w, i) { later(function () { w.classList.add("on"); }, i * 40); });
       later(function () { if (my !== run) return; setState("clean"); root.classList.add("cleaning"); later(function () { if (my !== run) return; root.classList.remove("cleaning"); setState("write"); var o = S[key].out, i = 0; (function ty() { if (my !== run) return; i = Math.min(o.length, i + 2); out.innerHTML = esc(o.slice(0, i)) + (i < o.length ? '<span class="caret"></span>' : ""); if (i < o.length) later(ty, 18); else setState("done"); })(); }, 1100); }, rest.length * 40 + 300);
     }
-    [k1, k2].forEach(function (k) { k.addEventListener("pointerdown", function (e) { e.preventDefault(); try { k.setPointerCapture(e.pointerId); } catch (x) {} start(); }); ["pointerup", "pointercancel"].forEach(function (ev) { k.addEventListener(ev, end); }); });
-    addEventListener("keydown", function (e) { if (e.code === "Space" && !e.repeat && vis && !/INPUT|TEXTAREA|BUTTON|A/.test(document.activeElement.tagName)) { e.preventDefault(); start(); } });
+    [k1, k2].forEach(function (k) { k.addEventListener("pointerdown", function (e) { lastUser = Date.now(); e.preventDefault(); try { k.setPointerCapture(e.pointerId); } catch (x) {} start(); }); ["pointerup", "pointercancel"].forEach(function (ev) { k.addEventListener(ev, end); }); });
+    addEventListener("keydown", function (e) { if (e.code === "Space" && !e.repeat && (lastUser = Date.now()) && vis && !/INPUT|TEXTAREA|BUTTON|A/.test(document.activeElement.tagName)) { e.preventDefault(); start(); } });
     addEventListener("keyup", function (e) { if (e.code === "Space") end(); });
-    $$("#dTabs button").forEach(function (b) { b.addEventListener("click", function () { $$("#dTabs button").forEach(function (x) { x.classList.toggle("on", x === b); }); interacted = true; load(b.getAttribute("data-k")); }); });
-    if ("IntersectionObserver" in window) new IntersectionObserver(function (es) { var v = es[0].isIntersecting; vis = v; if (v && !interacted && !reduce && !root.__a) { root.__a = 1; setTimeout(function () { if (!interacted) { start(); setTimeout(function () { if (state === "listen") end(); }, 2600); } }, 900); } }, { threshold: .45 }).observe(root);
+    $$("#dTabs button").forEach(function (b) { b.addEventListener("click", function () { $$("#dTabs button").forEach(function (x) { x.classList.toggle("on", x === b); }); lastUser = Date.now(); load(b.getAttribute("data-k")); }); });
+    if ("IntersectionObserver" in window) new IntersectionObserver(function (es) { vis = es[0].isIntersecting; }, { threshold: .25 }).observe(root); else vis = true;
+    (async function auto() {
+      var order = ["email", "notes", "hinglish"], oi = 0, first = true;
+      while (!reduce) {
+        await sleep(600);
+        if (!vis || Date.now() - lastUser < 7000 || (state !== "idle" && state !== "done")) continue;
+        if (!first) { oi = (oi + 1) % 3; $$("#dTabs button").forEach(function (b) { b.classList.toggle("on", b.getAttribute("data-k") === order[oi]); }); load(order[oi]); }
+        first = false; await sleep(700); if (state !== "idle") continue; start(); await sleep(2900);
+        if (state === "listen") end(); await sleep(7600);
+      }
+    })();
     load("email");
-  })();
-
-  /* =====================================================================
-     HOW IT WORKS: scroll-driven story, one sentence travels through Waky
-     ===================================================================== */
-  (function story() {
-    var sec = $("#how"); if (!sec) return;
-    var RAW = "um tell maya i’ll send the deck uh tomorrow morning", OUT = "Hi Maya,\n\nI’ll send the deck over tomorrow morning.\n\nBest, Nayan";
-    var ST = [
-      { t: "Hold the key", d: "Click into any text field and hold Ctrl + Win. A small black pill shows Waky is listening. You never open a window.", tag: "01 · LISTEN" },
-      { t: "Say it your way", d: "Ramble, pause, say um. Switch between Hindi and English mid-sentence. Speech becomes text through Groq with your key, or Whisper on your PC.", tag: "02 · TRANSCRIBE" },
-      { t: "Clean it. Shape it.", d: "Fillers go, punctuation is fixed, your vocabulary repairs misheard words. Say a mode (write email) and the sentence becomes a draft.", tag: "03 · CLEAN + SHAPE" },
-      { t: "Let go. It’s written.", d: "The text is pasted where your cursor is. Waky never presses Enter, so you read it before you send it.", tag: "04 · PASTE" }
-    ];
-    var T = $("#flT"), D = $("#flD"), tag = $("#flTag"), body = $("#flBody"), pillE = $("#flPill"), pl = $("#flPL"), dots = $$("#flDots li"), win = $("#flWin"), fill = $("#flFill"), chip = $("#flChip"), last = -1;
-    function morph(a, b, q) { var L = Math.max(a.length, b.length), o = "", k = q * L; for (var i = 0; i < L; i++) { if (i < k) o += b[i] || ""; else { var ch = a[i] || ""; o += ch && Math.random() < .5 ? GL[(Math.random() * GL.length) | 0] : ch; } } return o; }
-    function update() {
-      var r = sec.getBoundingClientRect(), total = sec.offsetHeight - innerHeight, p = clamp(-r.top / Math.max(1, total), 0, .9999), idx = Math.floor(p * 4), q = p * 4 - idx;
-      fill.style.transform = "scaleY(" + p.toFixed(3) + ")";
-      if (idx !== last) { last = idx; T.textContent = ST[idx].t; D.textContent = ST[idx].d; tag.textContent = ST[idx].tag; dots.forEach(function (d, i) { d.classList.toggle("on", i <= idx); d.classList.toggle("cur", i === idx); }); win.setAttribute("data-st", idx); pillE.setAttribute("data-s", ["listen", "listen", "work", "done"][idx]); pl.textContent = ["Listening", "Listening", "Writing…", "Pasted"][idx]; chip.classList.toggle("show", idx >= 2); T.classList.remove("swap"); void T.offsetWidth; T.classList.add("swap"); }
-      var txt;
-      if (idx === 0) txt = ""; else if (idx === 1) txt = RAW.slice(0, Math.ceil(q * RAW.length)); else if (idx === 2) txt = morph(RAW, OUT, q); else txt = OUT;
-      body.innerHTML = esc(txt) + (idx < 3 ? '<span class="caret"></span>' : "");
-      body.classList.toggle("raw", idx === 1 || (idx === 2 && q < .5));
-    }
-    addEventListener("scroll", update, { passive: true }); addEventListener("resize", update); update();
   })();
 
   /* =====================================================================
